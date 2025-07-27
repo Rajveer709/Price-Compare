@@ -117,7 +117,7 @@ function App() {
     // Simulate API call delay
     setTimeout(() => {
       try {
-        const searchTerm = query.toLowerCase();
+        const searchTerm = query.toLowerCase().trim();
         
         // Filter mock products based on search query
         const searchResults = MOCK_PRODUCTS.filter(product => 
@@ -136,16 +136,24 @@ function App() {
             isMock: true,
           }]);
         } else {
-          setResults(searchResults);
+          // Ensure we have valid product data
+          const validResults = searchResults.map(product => ({
+            ...product,
+            image: product.image || 'https://via.placeholder.com/150',
+            rating: product.rating || 0,
+            ratingCount: product.ratingCount || 0,
+            originalPrice: product.originalPrice || product.price
+          }));
+          setResults(validResults);
         }
       } catch (err) {
         console.error('Search error:', err);
-        setError('An error occurred during search.');
+        setError('An error occurred during search. Please try again.');
         setResults([]);
       } finally {
         setLoading(false);
       }
-    }, 800); // Simulate network delay
+    }, 500); // Reduced delay for better UX
   };
 
   // Handle Enter key press in search input
