@@ -1,12 +1,48 @@
-# React + Vite
+# Price Comparison App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React application built with Vite for comparing prices across different platforms.
 
-Currently, two official plugins are available:
+## Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Prerequisites
+- Node.js (v14 or later)
+- npm (v7 or later) or yarn
 
-## Expanding the ESLint configuration
+### Installation
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Deployment
+
+This project is configured for deployment on Netlify.
+
+### Deploy to Netlify
+
+1. Push your code to a GitHub, GitLab, or Bitbucket repository
+2. Log in to your [Netlify](https://app.netlify.com/) account
+3. Click on "Add new site" > "Import an existing project"
+4. Select your repository
+5. Configure the build settings:
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+6. Click "Deploy site"
+
+### Environment Variables
+
+If your application requires environment variables, add them in the Netlify site settings under "Site settings" > "Build & deploy" > "Environment".
+
+## Development
+
+This project uses:
+- React 18
+- Vite
+- Tailwind CSS
+- Framer Motion
