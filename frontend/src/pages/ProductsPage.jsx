@@ -1082,14 +1082,14 @@ export default function ProductsPage() {
                     pr="4.5rem"
                     borderRadius="lg"
                   />
-                  {searchQuery && (
+                  {searchTerm && (
                     <InputRightElement width="4.5rem">
                       <IconButton
                         aria-label="Clear search"
                         icon={<CloseIcon />}
                         size="sm"
                         variant="ghost"
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => setSearchTerm('')}
                         colorScheme="gray"
                         borderRadius="full"
                       />
