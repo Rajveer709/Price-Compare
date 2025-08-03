@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { keyframes } from '@emotion/react';
 import { MoonIcon, SunIcon } from '@chakra-ui/icons';
-import { FiFilter } from 'react-icons/fi';
+import { FiFilter, FiX } from 'react-icons/fi';
 import { 
   Alert,
   AlertIcon,
