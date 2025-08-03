@@ -926,6 +926,18 @@ export default function ProductsPage() {
     setPage(1);
   };
 
+  // Generate sort label based on current sort state
+  const getSortLabel = () => {
+    if (sortBy === 'price') {
+      return sortOrder === 'asc' ? 'Price: Low to High' : 'Price: High to Low';
+    } else if (sortBy === 'name') {
+      return sortOrder === 'asc' ? 'Name: A to Z' : 'Name: Z to A';
+    } else if (sortBy === 'rating') {
+      return 'Highest Rated';
+    }
+    return 'Sort By';
+  };
+
   // Sort indicator component
   const SortIndicator = ({ field }) => {
     if (sortBy !== field) return null;
