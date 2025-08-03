@@ -135,9 +135,9 @@ import {
   ChevronLeftIcon, 
   ChevronRightIcon, 
   ArrowDownIcon, 
-  ArrowUpIcon,
-  HomeIcon
+  ArrowUpIcon
 } from '@chakra-ui/icons';
+import { MdHome } from 'react-icons/md';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { productService } from '../services/api';
 import { Link as RouterLink } from 'react-router-dom';
@@ -991,7 +991,7 @@ export default function ProductsPage() {
                 as={RouterLink}
                 to="/"
                 variant="ghost"
-                leftIcon={<HomeIcon />}
+                leftIcon={<MdHome />}
                 size={{ base: 'sm', md: 'md' }}
                 _hover={{ bg: hoverBg }}
                 _active={{ bg: activeBg }}
