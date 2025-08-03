@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { keyframes } from '@emotion/react';
+import { MoonIcon, SunIcon } from '@chakra-ui/icons';
 import { 
   Alert,
   AlertIcon,
