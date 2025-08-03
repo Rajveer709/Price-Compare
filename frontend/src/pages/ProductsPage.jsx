@@ -135,7 +135,8 @@ import {
   ChevronLeftIcon, 
   ChevronRightIcon, 
   ArrowDownIcon, 
-  ArrowUpIcon 
+  ArrowUpIcon,
+  HomeIcon
 } from '@chakra-ui/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { productService } from '../services/api';
