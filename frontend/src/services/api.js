@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Use environment variable for API base URL with fallback to development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,30 +10,61 @@ const api = axios.create({
   },
 });
 
-// Add a request interceptor to include auth token if available
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+export const productService = {
+  // Get all products
+  getProducts: async () => {
+    try {
+      const response = await api.get('/products/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      throw error;
     }
-    return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
-export const productApi = {
-  searchProducts: async (query) => {
-    const response = await api.get(`/api/v1/products/search?q=${encodeURIComponent(query)}`);
-    return response.data;
+  // Create a new product
+  createProduct: async (productData) => {
+    try {
+      const response = await api.post('/products/', productData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating product:', error);
+      throw error;
+    }
   },
-  getProduct: async (id) => {
-    const response = await api.get(`/api/v1/products/${id}`);
-    return response.data;
+
+  // Get a single product by ID
+  getProductById: async (id) => {
+    try {
+      const response = await api.get(`/products/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching product ${id}:`, error);
+      throw error;
+    }
   },
-  // Add more API methods as needed
+
+  // Update a product
+  updateProduct: async (id, productData) => {
+    try {
+      const response = await api.put(`/products/${id}`, productData);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating product ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Delete a product
+  deleteProduct: async (id) => {
+    try {
+      const response = await api.delete(`/products/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting product ${id}:`, error);
+      throw error;
+    }
+  },
 };
 
 export default api;

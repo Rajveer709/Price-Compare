@@ -1,14 +1,51 @@
+# Core
 fastapi==0.68.0
 uvicorn==0.15.0
 python-multipart==0.0.5
+python-dotenv>=0.19.0
+aiohttp>=3.8.0
+fake-useragent>=1.1.3
+tenacity>=8.0.0
+beautifulsoup4>=4.11.0
+pydantic[email]==1.10.7  # Latest 1.x version
+python-dotenv==0.19.0  # For environment variable management
+requests==2.31.0  # Required for PA-API
+hmac==0.0.1  # Required for PA-API signature generation
+hashlib==20081119  # Required for PA-API signature generation
+
+# Database
 sqlalchemy==1.4.23
-psycopg2-binary
+psycopg2-binary>=2.9.5
+pymongo==4.1.1
+
+# Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-dotenv==0.19.0
-requests==2.26.0
-beautifulsoup4==4.9.3
-pydantic==1.8.2
-aiohttp==3.7.4
-pytest==6.2.5
-httpx==0.19.0
+slowapi
+
+# Web Scraping
+playwright==1.33.0
+beautifulsoup4==4.12.2
+lxml==4.9.2
+requests==2.31.0
+httpx==0.24.0
+aiohttp==3.8.4
+aiofiles==23.1.0  # For async file operations
+
+# Scheduler
+apscheduler==3.10.1
+
+# Proxy Support
+python-socks[asyncio]==2.2.0
+
+# Captcha Solving
+anticaptchaofficial==1.0.60
+
+# Notifications
+slack-sdk==3.21.3
+python-json-logger==2.0.7
+
+# Testing
+pytest==7.4.0
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0

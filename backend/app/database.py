@@ -1,9 +1,8 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
+from .models import Base, Product, Offer, User  # Import models from models.py
 
 # Load environment variables
 load_dotenv()
@@ -12,13 +11,13 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./price_compare.db")
 
 # Create SQLAlchemy engine
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
+engine = create_engine(
+    DATABASE_URL, 
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+)
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base class for models
-Base = declarative_base()
 
 # Dependency to get DB session
 def get_db():
@@ -28,38 +27,30 @@ def get_db():
     finally:
         db.close()
 
-# Models
-class Product(Base):
-    __tablename__ = "products"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True, nullable=False)
-    description = Column(String, nullable=True)
-    image_url = Column(String, nullable=True)
-    category = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationship with offers
-    offers = relationship("Offer", back_populates="product")
-
-class Offer(Base):
-    __tablename__ = "offers"
-
-    id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    seller = Column(String, nullable=False)
-    price = Column(Float, nullable=False)
-    original_price = Column(Float, nullable=True)
-    discount = Column(Float, nullable=True)
-    url = Column(String, nullable=False)
-    website = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationship with product
-    product = relationship("Product", back_populates="offers")
-
-# Create tables
+# Drop all tables and recreate them
 def create_tables():
-    Base.metadata.create_all(bind=engine)
+    """Drop and recreate all tables in the database."""
+    try:
+        # Drop all tables first
+        Base.metadata.drop_all(bind=engine)
+        print("Dropped all existing tables")
+        
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        print("Successfully created all tables")
+        
+        # Verify tables were created
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        print(f"Available tables: {tables}")
+        
+        # Verify columns in products table
+        if 'products' in tables:
+            columns = [col['name'] for col in inspector.get_columns('products')]
+            print(f"Columns in 'products' table: {columns}")
+            
+    except Exception as e:
+        error_msg = f"Error initializing database: {str(e)}"
+        print(error_msg)
+        raise RuntimeError(error_msg) from e

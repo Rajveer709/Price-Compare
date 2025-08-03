@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, EmailStr
 from typing import List, Optional
 from datetime import datetime
 
@@ -8,6 +8,8 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     image_url: Optional[HttpUrl] = None
     category: Optional[str] = None
+    price: Optional[float] = None
+    source: Optional[str] = None
 
 # Properties to receive on product creation
 class ProductCreate(ProductBase):
@@ -24,7 +26,7 @@ class ProductInDBBase(ProductBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated from orm_mode for Pydantic v2
 
 # Properties to return to client
 class Product(ProductInDBBase):
@@ -59,7 +61,7 @@ class OfferInDBBase(OfferBase):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated from orm_mode for Pydantic v2
 
 # Properties to return to client
 class Offer(OfferInDBBase):
@@ -71,3 +73,22 @@ class ProductWithOffers(Product):
 
 class OfferWithProduct(Offer):
     product: Product
+
+class UserBase(BaseModel):
+    email: EmailStr
+
+class UserCreate(UserBase):
+    password: str
+
+class UserLogin(UserBase):
+    password: str
+
+class User(UserBase):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True  # Updated from orm_mode for Pydantic v2
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str

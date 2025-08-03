@@ -1,6 +1,6 @@
-from pydantic import AnyHttpUrl, validator
-from typing import List, Optional, Union
+from pydantic import AnyHttpUrl, field_validator, ConfigDict
 from pydantic_settings import BaseSettings
+from typing import List, Optional, Union, Any
 import os
 
 class Settings(BaseSettings):
@@ -35,7 +35,14 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
+    # Amazon PA-API Settings
+    AMAZON_PAAPI_ACCESS_KEY: str = os.getenv("AMAZON_PAAPI_ACCESS_KEY", "")
+    AMAZON_PAAPI_SECRET_KEY: str = os.getenv("AMAZON_PAAPI_SECRET_KEY", "")
+    AMAZON_PARTNER_TAG: str = os.getenv("AMAZON_PARTNER_TAG", "")
+    AMAZON_PAAPI_REGION: str = os.getenv("AMAZON_PAAPI_REGION", "us-east-1")
+    
+    @field_validator("BACKEND_CORS_ORIGINS", mode='before')
+    @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
@@ -43,9 +50,10 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    model_config = ConfigDict(
+        case_sensitive=True,
+        env_file=".env"
+    )
 
 # Create settings instance
 settings = Settings()
