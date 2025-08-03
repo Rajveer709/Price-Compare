@@ -754,7 +754,18 @@ export default function ProductsPage() {
       [filterName]: value
     }));  
   }, [setFilters]);
-  
+
+  // Clear all filters
+  const clearAllFilters = useCallback(() => {
+    setFilters({
+      inStock: false,
+      category: '',
+      minPrice: '',
+      maxPrice: ''
+    });
+    setAppliedFilters({});
+  }, []);
+
   // Memoize the filtered products
   const filteredProducts = useMemo(() => {
     if (!products) return [];
