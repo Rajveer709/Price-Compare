@@ -20,11 +20,14 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  MenuDivider,
   Avatar,
   Badge,
-  Tooltip
+  Tooltip,
+  Spinner
 } from '@chakra-ui/react';
 import { SearchIcon, BellIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { FiUser, FiSettings, FiLogOut } from 'react-icons/fi';
 import { SunIcon, MoonIcon } from '@chakra-ui/icons';
 import { Routes, Route, Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -73,13 +76,14 @@ function ThemeToggle() {
 
 // Navigation bar component with enhanced design
 function NavBar() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const bg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.100', 'gray.700');
   const color = useColorModeValue('gray.800', 'white');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
   const activeBg = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Navigation links
   const navItems = [
@@ -94,11 +98,34 @@ function NavBar() {
   const handleSignOut = async () => {
     try {
       await signOut();
+      setIsMenuOpen(false);
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
+  
+  // Show loading state
+  if (loading) {
+    return (
+      <Box 
+        as="header"
+        bg={bg}
+        borderBottom="1px solid"
+        borderColor={borderColor}
+        position="sticky"
+        top={0}
+        zIndex="sticky"
+        boxShadow="sm"
+      >
+        <Container maxW="container.xl" px={{ base: 4, lg: 8 }}>
+          <Flex h={16} alignItems="center" justifyContent="center">
+            <Spinner size="sm" />
+          </Flex>
+        </Container>
+      </Box>
+    );
+  }
   
   return (
     <Box 
@@ -216,7 +243,7 @@ function NavBar() {
                   />
                 </IconButton>
                 
-                <Menu>
+                <Menu isOpen={isMenuOpen} onOpen={() => setIsMenuOpen(true)} onClose={() => setIsMenuOpen(false)}>
                   <MenuButton
                     as={Button}
                     variant="ghost"
@@ -227,22 +254,55 @@ function NavBar() {
                   >
                     <HStack spacing={2}>
                       <Avatar 
-                        size="sm" 
-                        name={user.email} 
-                        src={user.user_metadata?.avatar_url}
+                        name={user?.email} 
+                        src={user?.user_metadata?.avatar_url}
                         bg="brand.500"
                         color="white"
+                        size="sm"
                       />
-                      <Text display={{ base: 'none', md: 'block' }}>
-                        {user.email?.split('@')[0] || 'Account'}
+                      <Text display={{ base: 'none', md: 'block' }} fontSize="sm">
+                        {user?.email?.split('@')[0] || 'Account'}
                       </Text>
                     </HStack>
                   </MenuButton>
-                  <MenuList zIndex="dropdown">
-                    <MenuItem>Profile</MenuItem>
-                    <MenuItem>Settings</MenuItem>
+                  <MenuList zIndex="dropdown" minW="200px">
+                    <Box px={3} py={2} borderBottomWidth="1px">
+                      <Text fontWeight="medium" fontSize="sm">{user?.email}</Text>
+                      <Text fontSize="xs" color={useColorModeValue('gray.600', 'gray.400')}>
+                        {user?.email}
+                      </Text>
+                    </Box>
+                    <MenuDivider m={0} />
+                    <MenuItem 
+                      icon={<Box as={FiUser} size={16} />}
+                      onClick={() => {
+                        navigate('/profile');
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      Profile
+                    </MenuItem>
+                    <MenuItem 
+                      icon={<Box as={FiSettings} size={16} />}
+                      onClick={() => {
+                        navigate('/settings');
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      Settings
+                    </MenuItem>
                     <MenuDivider />
-                    <MenuItem onClick={handleSignOut}>Sign out</MenuItem>
+                    <MenuItem 
+                      icon={<Box as={FiLogOut} size={16} />}
+                      onClick={handleSignOut}
+                      color={useColorModeValue('red.600', 'red.400')}
+                      _hover={{
+                        bg: useColorModeValue('red.50', 'red.900'),
+                        color: useColorModeValue('red.700', 'red.300'),
+                      }}
+                    >
+                      Sign out
+                    </MenuItem>
                   </MenuList>
                 </Menu>
               </>

@@ -6,53 +6,98 @@ const AuthContext = createContext({});
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
 
   useEffect(() => {
     // Check active sessions and set the user
-    const session = supabase.auth.session();
-    setUser(session?.user ?? null);
-    setLoading(false);
+    const getInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getInitialSession();
 
     // Listen for changes in auth state
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
     return () => {
-      authListener?.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
   // Sign up with email and password
   const signUp = async (email, password) => {
-    const { user, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    return { user, error };
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      return { user: data?.user, error };
+    } catch (error) {
+      return { user: null, error };
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Sign in with email and password
   const signIn = async (email, password) => {
-    const { user, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { user, error };
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      return { user: data?.user, error };
+    } catch (error) {
+      return { user: null, error };
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Sign out
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      setLoading(true);
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      return { error: null };
+    } catch (error) {
+      return { error };
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Reset password
   const resetPassword = async (email) => {
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email);
-    return { data, error };
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      return { error };
+    } catch (error) {
+      return { error };
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value = {
@@ -61,6 +106,7 @@ export const AuthProvider = ({ children }) => {
     signOut,
     resetPassword,
     user,
+    session,
     loading,
   };
 
