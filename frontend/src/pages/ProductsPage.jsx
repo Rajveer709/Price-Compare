@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import PropTypes from 'prop-types';
 import { keyframes } from '@emotion/react';
 import { MoonIcon, SunIcon } from '@chakra-ui/icons';
@@ -705,6 +707,10 @@ function AddProductModal({ isOpen, onClose, onSuccess }) {
 }
 
 export default function ProductsPage() {
+  // Authentication and navigation
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
   // State management
   const [products, setProducts] = useState([]);
   const [isFiltering, setIsFiltering] = useState(false);
@@ -722,6 +728,7 @@ export default function ProductsPage() {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const itemsPerPage = 12;
   
   // Refs and hooks
@@ -1035,21 +1042,28 @@ export default function ProductsPage() {
                 _active={{ bg: activeBg }}
                 size={{ base: 'sm', md: 'md' }}
               />
-              <Button
-                as={RouterLink}
-                to="/products/new"
-                colorScheme="brand"
-                leftIcon={<AddIcon />}
-                size={{ base: 'sm', md: 'md' }}
-                _hover={{
-                  transform: 'translateY(-2px)',
-                  boxShadow: 'lg',
-                }}
-                transition="all 0.2s"
-              >
-                <Box as="span" display={{ base: 'none', md: 'inline' }}>Add Product</Box>
-                <Box as="span" display={{ base: 'inline', md: 'none' }}><AddIcon /></Box>
-              </Button>
+              <Tooltip label={!user ? 'Sign in to add products' : ''} placement="bottom" hasArrow>
+                <Button
+                  as={user ? RouterLink : 'button'}
+                  to={user ? "/products/new" : "#"}
+                  colorScheme="brand"
+                  leftIcon={<AddIcon />}
+                  size={{ base: 'sm', md: 'md' }}
+                  _hover={{
+                    transform: user ? 'translateY(-2px)' : 'none',
+                    boxShadow: user ? 'lg' : 'none',
+                  }}
+                  _disabled={{
+                    opacity: 0.7,
+                    cursor: 'not-allowed',
+                  }}
+                  onClick={!user ? () => setShowLoginPrompt(true) : undefined}
+                  transition="all 0.2s"
+                >
+                  <Box as="span" display={{ base: 'none', md: 'inline' }}>Add Product</Box>
+                  <Box as="span" display={{ base: 'inline', md: 'none' }}><AddIcon /></Box>
+                </Button>
+              </Tooltip>
             </HStack>
           </Flex>
         </Container>
@@ -1057,6 +1071,47 @@ export default function ProductsPage() {
 
       <Container maxW="container.xl" py={8} px={{ base: 4, md: 6 }}>
         <VStack spacing={6} align="stretch">
+          {/* Login Prompt */}
+          {showLoginPrompt && (
+            <Alert 
+              status="info"
+              variant="subtle"
+              flexDirection="column"
+              alignItems="center"
+              justifyContent="center"
+              textAlign="center"
+              py={6}
+              borderRadius="md"
+              mb={6}
+              bg={useColorModeValue('blue.50', 'blue.900')}
+            >
+              <AlertIcon boxSize="40px" mr={0} />
+              <Box mt={4} mb={2}>
+                <AlertTitle>Sign In Required</AlertTitle>
+                <AlertDescription maxWidth="md">
+                  You need to be logged in to add products. Please sign in or create an account to continue.
+                </AlertDescription>
+              </Box>
+              <HStack spacing={4} mt={4}>
+                <Button 
+                  colorScheme="blue" 
+                  onClick={() => {
+                    setShowLoginPrompt(false);
+                    navigate('/login', { state: { from: '/products' } });
+                  }}
+                >
+                  Sign In
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowLoginPrompt(false)}
+                >
+                  Cancel
+                </Button>
+              </HStack>
+            </Alert>
+          )}
+
           {/* Page Header */}
           <Box mb={6}>
             <Heading size="2xl" color={textColor} mb={2} fontWeight="bold">
