@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import PropTypes from 'prop-types';
 import { keyframes } from '@emotion/react';
 import { MoonIcon, SunIcon } from '@chakra-ui/icons';
@@ -707,8 +706,7 @@ function AddProductModal({ isOpen, onClose, onSuccess }) {
 }
 
 export default function ProductsPage() {
-  // Authentication and navigation
-  const { user } = useAuth();
+  // Navigation
   const navigate = useNavigate();
   
   // State management
@@ -728,7 +726,6 @@ export default function ProductsPage() {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const itemsPerPage = 12;
   
   // Refs and hooks
