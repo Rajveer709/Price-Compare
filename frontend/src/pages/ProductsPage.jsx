@@ -898,7 +898,7 @@ export default function ProductsPage() {
 
   // Theme values - Enhanced for better contrast and visual hierarchy
   const { colorMode, toggleColorMode } = useColorMode();
-  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const bgColor = useColorModeValue('white', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const inputBg = useColorModeValue('white', 'gray.700');
