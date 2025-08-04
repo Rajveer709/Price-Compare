@@ -104,6 +104,18 @@ export const AuthProvider = ({ children }) => {
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
+      console.log('Initiating Google OAuth flow...');
+      
+      // Verify supabase client is properly initialized
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return { data: null, error: new Error('Supabase client not initialized') };
+      }
+
+      // Add more detailed logging
+      console.log('Supabase URL:', supabase.supabaseUrl);
+      console.log('Redirect URL:', `${window.location.origin}/products`);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -114,9 +126,24 @@ export const AuthProvider = ({ children }) => {
           },
         },
       });
+
+      console.log('OAuth response:', { data, error });
+      
+      if (error) {
+        console.error('OAuth error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        });
+      }
+      
       return { data, error };
     } catch (error) {
-      console.error('Error signing in with Google:', error);
+      console.error('Error in signInWithGoogle:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+      });
       return { data: null, error };
     } finally {
       setLoading(false);
