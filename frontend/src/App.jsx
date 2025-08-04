@@ -26,12 +26,17 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon, BellIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { SunIcon, MoonIcon } from '@chakra-ui/icons';
-import { Routes, Route, Link as RouterLink, Navigate } from 'react-router-dom';
+import { Routes, Route, Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from 'react-error-boundary';
 import theme from './theme';
 import ProductsPage from './pages/ProductsPage';
 import HomePage from './pages/HomePage';
+import LoginPage from './pages/auth/LoginPage';
+import SignupPage from './pages/auth/SignupPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -68,6 +73,8 @@ function ThemeToggle() {
 
 // Navigation bar component with enhanced design
 function NavBar() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const bg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.100', 'gray.700');
   const color = useColorModeValue('gray.800', 'white');
@@ -78,9 +85,20 @@ function NavBar() {
   const navItems = [
     { label: 'Home', to: '/' },
     { label: 'Products', to: '/products' },
-    { label: 'Price Tracker', to: '/tracker' },
-    { label: 'Deals', to: '/deals' },
+    ...(user ? [
+      { label: 'Price Tracker', to: '/tracker' },
+      { label: 'Deals', to: '/deals' },
+    ] : []),
   ];
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
   
   return (
     <Box 
@@ -174,26 +192,82 @@ function NavBar() {
               fontSize="xl"
               borderRadius="full"
             />
-            <IconButton
-              aria-label="View notifications"
-              icon={<BellIcon />}
-              variant="ghost"
-              colorScheme="gray"
-              size="md"
-              fontSize="xl"
-              borderRadius="full"
-              position="relative"
-            >
-              <Box
-                position="absolute"
-                top={2}
-                right={2}
-                w={2}
-                h={2}
-                bg="red.500"
-                borderRadius="full"
-              />
-            </IconButton>
+            
+            {user ? (
+              <>
+                <IconButton
+                  aria-label="View notifications"
+                  icon={<BellIcon />}
+                  variant="ghost"
+                  colorScheme="gray"
+                  size="md"
+                  fontSize="xl"
+                  borderRadius="full"
+                  position="relative"
+                >
+                  <Box
+                    position="absolute"
+                    top={2}
+                    right={2}
+                    w={2}
+                    h={2}
+                    bg="red.500"
+                    borderRadius="full"
+                  />
+                </IconButton>
+                
+                <Menu>
+                  <MenuButton
+                    as={Button}
+                    variant="ghost"
+                    rightIcon={<ChevronDownIcon />}
+                    px={2}
+                    _hover={{ bg: hoverBg }}
+                    _active={{ bg: activeBg }}
+                  >
+                    <HStack spacing={2}>
+                      <Avatar 
+                        size="sm" 
+                        name={user.email} 
+                        src={user.user_metadata?.avatar_url}
+                        bg="brand.500"
+                        color="white"
+                      />
+                      <Text display={{ base: 'none', md: 'block' }}>
+                        {user.email?.split('@')[0] || 'Account'}
+                      </Text>
+                    </HStack>
+                  </MenuButton>
+                  <MenuList zIndex="dropdown">
+                    <MenuItem>Profile</MenuItem>
+                    <MenuItem>Settings</MenuItem>
+                    <MenuDivider />
+                    <MenuItem onClick={handleSignOut}>Sign out</MenuItem>
+                  </MenuList>
+                </Menu>
+              </>
+            ) : (
+              <HStack spacing={2}>
+                <Button 
+                  as={RouterLink} 
+                  to="/login" 
+                  variant="ghost"
+                  colorScheme="gray"
+                  size="sm"
+                >
+                  Log In
+                </Button>
+                <Button 
+                  as={RouterLink} 
+                  to="/signup" 
+                  colorScheme="brand"
+                  size="sm"
+                >
+                  Sign Up
+                </Button>
+              </HStack>
+            )}
+            
             <ThemeToggle />
           </Flex>
         </Flex>
@@ -217,94 +291,80 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 
 // Main App component
 function App() {
-  const bgColor = useColorModeValue('gray.50', 'gray.900');
-  const footerBg = useColorModeValue('white', 'gray.800');
-  const footerBorderColor = useColorModeValue('gray.200', 'gray.700');
-  const footerTextColor = useColorModeValue('gray.600', 'gray.400');
-  const linkHoverColor = useColorModeValue('brand.500', 'brand.300');
-
   return (
     <ChakraProvider theme={theme}>
       <ColorModeScript initialColorMode={theme.config.initialColorMode} />
       <CSSReset />
       <QueryClientProvider client={queryClient}>
         <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <Box 
-            minH="100vh" 
-            display="flex" 
-            flexDirection="column"
-            bg={bgColor}
-          >
-            <NavBar />
-            <Box 
-              as="main" 
-              flex="1"
-              pt={{ base: 6, md: 8 }}
-              pb={8}
-              px={{ base: 4, md: 6, lg: 8 }}
-            >
-              <Container 
-                maxW="container.xl" 
-                px={0}
-                height="100%"
+          <AuthProvider>
+            <Box minH="100vh" display="flex" flexDirection="column">
+              <NavBar />
+              <Box as="main" flex="1">
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  
+                  {/* Protected Routes */}
+                  <Route 
+                    path="/products" 
+                    element={
+                      <ProtectedRoute>
+                        <ProductsPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
+                  {/* Redirect any unknown paths to home */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Box>
+              <Box 
+                as="footer"
+                bg={useColorModeValue('white', 'gray.800')}
+                borderTopWidth="1px"
+                borderColor={useColorModeValue('gray.200', 'gray.700')}
+                py={6}
               >
-                <ErrorBoundary FallbackComponent={ErrorFallback}>
-                  <Box width="100%" height="100%">
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/products" element={<ProductsPage />} />
-                      <Route path="/products/new" element={<Navigate to="/products" />} />
-                      <Route path="*" element={<Navigate to="/" />} />
-                    </Routes>
-                  </Box>
-                </ErrorBoundary>
-              </Container>
-            </Box>
-            
-            {/* Footer */}
-            <Box 
-              as="footer"
-              bg={footerBg}
-              borderTopWidth="1px"
-              borderColor={footerBorderColor}
-              py={6}
-            >
-              <Container maxW="container.xl">
-                <Flex
-                  direction={{ base: 'column', md: 'row' }} 
-                  justify="space-between" 
-                  align="center"
-                  gap={4}
-                >
-                  <Text 
-                    color={footerTextColor}
-                    textAlign={{ base: 'center', md: 'left' }}
-                    fontSize="sm"
+                <Container maxW="container.xl">
+                  <Flex
+                    direction={{ base: 'column', md: 'row' }} 
+                    justify="space-between" 
+                    align="center"
+                    gap={4}
                   >
-                    © {new Date().getFullYear()} PriceCompare. All rights reserved.
-                  </Text>
-                  <Flex gap={6} wrap="wrap" justify={{ base: 'center', md: 'flex-end' }}>
-                    {['Terms', 'Privacy', 'Contact'].map((item) => (
-                      <Link 
-                        key={item}
-                        href="#" 
-                        color={footerTextColor}
-                        _hover={{ 
-                          color: linkHoverColor,
-                          textDecoration: 'none',
-                          transform: 'translateY(-1px)'
-                        }}
-                        transition="all 0.2s"
-                        fontSize="sm"
-                      >
-                        {item}
-                      </Link>
-                    ))}
+                    <Text 
+                      color={useColorModeValue('gray.600', 'gray.400')}
+                      textAlign={{ base: 'center', md: 'left' }}
+                      fontSize="sm"
+                    >
+                      {new Date().getFullYear()} PriceCompare. All rights reserved.
+                    </Text>
+                    <Flex gap={6} wrap="wrap" justify={{ base: 'center', md: 'flex-end' }}>
+                      {['Terms', 'Privacy', 'Contact'].map((item) => (
+                        <Link 
+                          key={item}
+                          href="#" 
+                          color={useColorModeValue('gray.600', 'gray.400')}
+                          _hover={{ 
+                            color: useColorModeValue('brand.500', 'brand.300'),
+                            textDecoration: 'none',
+                            transform: 'translateY(-1px)'
+                          }}
+                          transition="all 0.2s"
+                          fontSize="sm"
+                        >
+                          {item}
+                        </Link>
+                      ))}
+                    </Flex>
                   </Flex>
-                </Flex>
-              </Container>
+                </Container>
+              </Box>
             </Box>
-          </Box>
+          </AuthProvider>
         </ErrorBoundary>
       </QueryClientProvider>
     </ChakraProvider>
