@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Box,
@@ -10,12 +10,16 @@ import {
   Heading,
   Text,
   VStack,
+  HStack,
+  Divider,
   useToast,
   InputGroup,
   InputRightElement,
   IconButton,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
+import { FcGoogle } from 'react-icons/fc';
 
 const SignupPage = () => {
   const [email, setEmail] = useState('');
@@ -23,9 +27,12 @@ const SignupPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp } = useAuth();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
+  const from = location.state?.from?.pathname || '/';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -70,12 +77,80 @@ const SignupPage = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsGoogleLoading(true);
+      const { error } = await signInWithGoogle();
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Successfully signed up with Google',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      navigate(from, { replace: true });
+    } catch (error) {
+      toast({
+        title: 'Error signing up with Google',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const dividerBg = useColorModeValue('gray.300', 'gray.600');
+  const dividerTextBg = useColorModeValue('white', 'gray.800');
+
   return (
-    <Box maxW="md" mx="auto" mt={20} p={6} borderWidth={1} borderRadius="lg">
+    <Box maxW="md" mx="auto" mt={8} p={6} borderWidth={1} borderRadius="lg" boxShadow="lg">
       <VStack spacing={6} align="stretch">
         <Box textAlign="center">
-          <Heading as="h1" size="xl">Create an Account</Heading>
-          <Text mt={2} color="gray.600">Join us today!</Text>
+          <Heading as="h1" size="xl" mb={2}>Create an account</Heading>
+          <Text color="gray.500">Fill in the form to get started</Text>
+        </Box>
+
+        {/* Google Sign-Up Button */}
+        <Button
+          variant="outline"
+          leftIcon={<FcGoogle size={20} />}
+          onClick={handleGoogleSignIn}
+          isLoading={isGoogleLoading}
+          loadingText="Signing up with Google"
+          size="lg"
+          py={6}
+          borderColor={useColorModeValue('gray.300', 'gray.600')}
+          _hover={{
+            bg: useColorModeValue('gray.50', 'gray.700'),
+          }}
+          _active={{
+            bg: useColorModeValue('gray.100', 'gray.600'),
+          }}
+        >
+          Continue with Google
+        </Button>
+
+        {/* Divider with "or" text */}
+        <Box position="relative" py={4}>
+          <Divider borderColor={dividerBg} />
+          <Text
+            position="absolute"
+            left="50%"
+            top="50%"
+            transform="translate(-50%, -50%)"
+            px={4}
+            bg={dividerTextBg}
+            color="gray.500"
+            fontSize="sm"
+          >
+            OR
+          </Text>
         </Box>
 
         <form onSubmit={handleSubmit}>

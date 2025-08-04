@@ -100,9 +100,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/products`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      return { data, error };
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+      return { data: null, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     resetPassword,
     user,
