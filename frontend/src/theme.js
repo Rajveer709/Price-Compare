@@ -1,17 +1,5 @@
 import { extendTheme } from '@chakra-ui/react';
-import { keyframes } from '@chakra-ui/system';
 import { mode } from '@chakra-ui/theme-tools';
-
-// Animation keyframes
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const slideIn = keyframes`
-  from { transform: translateX(-10px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-`;
 
 const config = {
   initialColorMode: 'light',
@@ -121,9 +109,7 @@ const components = {
       borderRadius: 'lg',
       transition: 'all 0.2s',
       _focus: {
-        ring: '2px',
-        ringColor: 'brand.500',
-        ringOffset: '2px',
+        boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.6)',
       },
     },
     variants: {
@@ -155,6 +141,16 @@ const components = {
           transform: 'translateY(0)',
         },
       }),
+      outline: (props) => ({
+        borderColor: 'brand.500',
+        color: 'brand.500',
+        _hover: {
+          bg: 'brand.50',
+          _dark: {
+            bg: 'brand.900',
+          },
+        },
+      }),
     },
   },
   Card: {
@@ -177,6 +173,21 @@ const components = {
         container: {
           bg: mode('white', 'gray.700')(props),
           boxShadow: 'lg',
+          _hover: {
+            boxShadow: 'xl',
+            transform: 'translateY(-4px)',
+          },
+        },
+      }),
+      interactive: (props) => ({
+        container: {
+          cursor: 'pointer',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          _hover: {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+            borderColor: 'brand.400',
+          },
         },
       }),
     },
@@ -195,6 +206,19 @@ const components = {
           _focus: {
             bg: 'transparent',
             borderColor: 'brand.500',
+            boxShadow: '0 0 0 1px var(--chakra-colors-brand-500)',
+          },
+        },
+      }),
+      outline: (props) => ({
+        field: {
+          borderWidth: '2px',
+          _hover: {
+            borderColor: 'brand.400',
+          },
+          _focus: {
+            borderColor: 'brand.500',
+            boxShadow: '0 0 0 1px var(--chakra-colors-brand-500)',
           },
         },
       }),
@@ -213,6 +237,7 @@ const components = {
         _focus: {
           bg: 'transparent',
           borderColor: 'brand.500',
+          boxShadow: '0 0 0 1px var(--chakra-colors-brand-500)',
         },
       }),
     },
@@ -226,6 +251,35 @@ const components = {
       },
     }),
   },
+  Badge: {
+    baseStyle: {
+      borderRadius: 'md',
+      fontWeight: 'semibold',
+      fontSize: 'xs',
+    },
+    variants: {
+      solid: (props) => ({
+        bg: `${props.colorScheme}.500`,
+        color: 'white',
+      }),
+      subtle: (props) => ({
+        bg: mode(`${props.colorScheme}.100`, `${props.colorScheme}.900`)(props),
+        color: mode(`${props.colorScheme}.800`, `${props.colorScheme}.200`)(props),
+      }),
+      outline: (props) => ({
+        borderWidth: '1px',
+        borderColor: `${props.colorScheme}.500`,
+        color: `${props.colorScheme}.500`,
+      }),
+    },
+  },
+  Skeleton: {
+    baseStyle: (props) => ({
+      borderRadius: 'md',
+      startColor: mode('gray.100', 'gray.800')(props),
+      endColor: mode('gray.300', 'gray.600')(props),
+    }),
+  },
 };
 
 const theme = extendTheme({
@@ -234,7 +288,8 @@ const theme = extendTheme({
   styles,
   components,
   shadows: {
-    outline: '0 0 0 3px var(--chakra-colors-brand-500)',
+    outline: '0 0 0 3px rgba(66, 153, 225, 0.6)',
+    'outline-brand': '0 0 0 3px rgba(14, 165, 233, 0.6)',
   },
   fonts: {
     heading: `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif`,
@@ -344,6 +399,22 @@ const theme = extendTheme({
         boxShadow: 'xl',
       },
     },
+    'card-interactive': {
+      bg: 'white',
+      _dark: {
+        bg: 'gray.800',
+      },
+      boxShadow: 'sm',
+      rounded: 'xl',
+      p: 6,
+      cursor: 'pointer',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      _hover: {
+        transform: 'translateY(-4px)',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+        borderColor: 'brand.400',
+      },
+    },
   },
   textStyles: {
     h1: {
@@ -383,48 +454,6 @@ const theme = extendTheme({
       lineHeight: '1.5',
       mb: 4,
     },
-  },
-  styles: {
-    global: (props) => ({
-      'html, body, #root': {
-        height: '100%',
-        width: '100%',
-        margin: 0,
-        padding: 0,
-        bg: mode('white', 'gray.900')(props),
-        color: mode('gray.800', 'whiteAlpha.900')(props),
-        fontFeatureSettings: '"cv02", "cv03", "cv04", "cv11"',
-        transition: 'background-color 0.2s, color 0.2s',
-        scrollBehavior: 'smooth',
-        WebkitFontSmoothing: 'antialiased',
-        MozOsxFontSmoothing: 'grayscale',
-      },
-      '::selection': {
-        bg: mode('brand.100', 'brand.900')(props),
-        color: mode('brand.700', 'brand.100')(props),
-      },
-      '::-webkit-scrollbar': {
-        width: '10px',
-        height: '10px',
-      },
-      '::-webkit-scrollbar-track': {
-        bg: mode('gray.100', 'gray.800')(props),
-      },
-      '::-webkit-scrollbar-thumb': {
-        bg: mode('gray.300', 'gray.600')(props),
-        borderRadius: 'full',
-        border: '2px solid',
-        borderColor: mode('gray.100', 'gray.800')(props),
-        '&:hover': {
-          bg: mode('gray.400', 'gray.500')(props),
-        },
-      },
-      'input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active': {
-        WebkitBoxShadow: `0 0 0 30px ${mode('#fff', '#1a202c')(props)} inset !important`,
-        WebkitTextFillColor: mode('gray.800', 'white')(props),
-        caretColor: mode('gray.800', 'white')(props),
-      },
-    }),
   },
 });
 
