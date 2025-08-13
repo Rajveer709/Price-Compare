@@ -1,1649 +1,1493 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import PropTypes from 'prop-types';
-import { keyframes } from '@emotion/react';
-import { MoonIcon, SunIcon } from '@chakra-ui/icons';
-import { FiFilter, FiX, FiMinus } from 'react-icons/fi';
-import { 
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
   Box,
-  Button,
-  Card,
-  CardBody,
-  CardFooter,
-  CardHeader,
   Container,
   Flex,
   Grid,
-  HStack,
+  GridItem,
   Heading,
-  IconButton,
+  Text,
+  Button,
   Input,
   InputGroup,
   InputLeftElement,
   InputRightElement,
-  Link,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-  MenuDivider,
-  MenuGroup,
-  MenuOptionGroup,
-  MenuItemOption,
-  Select,
-  SimpleGrid,
-  Skeleton,
-  SkeletonCircle,
-  SkeletonText,
-  Text,
   VStack,
-  StackDivider,
+  HStack,
+  Stack,
   Badge,
-  useColorModeValue,
-  useToast,
-  useDisclosure,
-  useBreakpointValue,
-  ScaleFade,
-  Fade,
-  SlideFade,
-  FormControl,
-  FormLabel,
-  useOutsideClick,
-  FormErrorMessage,
-  FormHelperText,
+  Image,
+  Card,
+  CardBody,
+  Skeleton,
+  SkeletonText,
+  Select,
+  RangeSlider,
+  RangeSliderTrack,
+  RangeSliderFilledTrack,
+  RangeSliderThumb,
   Checkbox,
   CheckboxGroup,
+  Radio,
+  RadioGroup,
+  IconButton,
   Tooltip,
-  Center,
-  Progress,
-  CircularProgress,
-  CircularProgressLabel,
-  Avatar,
-  AvatarBadge,
-  AvatarGroup,
-  Wrap,
-  WrapItem,
-  useColorMode,
-  Icon,
   Divider,
+  useColorModeValue,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  SimpleGrid,
+  AspectRatio,
+  Link,
+  Spinner,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  useToast,
   Collapse,
-  Accordion,
-  AccordionItem,
-  AccordionButton,
-  AccordionPanel,
-  AccordionIcon,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  TabIndicator,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  StatArrow,
-  StatGroup,
+  useBreakpointValue,
+  Center,
+  Drawer,
+  DrawerBody,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
   Tag,
   TagLabel,
-  TagLeftIcon,
-  TagRightIcon,
   TagCloseButton,
-  useClipboard,
-  usePrefersReducedMotion,
-  useTheme,
-  useStyleConfig,
-  useMultiStyleConfig,
-  useToken,
-  useMediaQuery
+  Wrap,
+  WrapItem,
+  ScaleFade,
+  SlideFade,
 } from '@chakra-ui/react';
-import { motion, AnimatePresence, AnimateSharedLayout } from 'framer-motion';
-import { ProductsGridSkeleton, FilterSkeleton } from '../components/SkeletonLoader';
-
-// Animation variants for Framer Motion
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05
-    }
-  }
-};
-
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      duration: 0.3,
-      ease: 'easeOut'
-    }
-  }
-};
-import { 
-  AddIcon, 
-  ExternalLinkIcon, 
-  SearchIcon, 
-  CloseIcon, 
-  ChevronDownIcon, 
-  StarIcon, 
-  CheckIcon, 
-  RepeatIcon, 
-  ChevronLeftIcon, 
-  ChevronRightIcon, 
-  ArrowDownIcon, 
-  ArrowUpIcon
+import {
+  SearchIcon,
+  ViewIcon,
+  StarIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ExternalLinkIcon,
+  HeartIcon,
+  GridIcon,
+  ListIcon,
+  FilterIcon,
+  CloseIcon,
+  WarningIcon,
+  RepeatIcon,
+  TimeIcon,
+  CheckIcon,
 } from '@chakra-ui/icons';
-import { MdHome } from 'react-icons/md';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { productService } from '../services/api';
-import { Link as RouterLink } from 'react-router-dom';
+import axios from 'axios';
 
-// Animation for loading cards
-const cardFadeIn = keyframes`
-  from { 
-    opacity: 0; 
-    transform: translateY(10px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
-`;
+// Motion components
+const MotionBox = motion(Box);
+const MotionCard = motion(Card);
+const MotionGrid = motion(SimpleGrid);
 
-function ProductCard({ product }) {
-  // Default to in_stock: true if not specified
-  const isInStock = product.in_stock !== false;
-  const [isHovered, setIsHovered] = useState(false);
-  
-  // Helper function to get the appropriate URL
-  const getProductUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http') || url.startsWith('https')) {
-      return url;
-    }
-    if (url.startsWith('/')) {
-      return `${window.location.origin}${url}`;
-    }
-    return null;
-  };
+// API configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
-  const productUrl = getProductUrl(product.url);
-  const hasValidUrl = productUrl && (productUrl.startsWith('http') || productUrl.startsWith('/'));
-  const hasDiscount = product.original_price && product.original_price > (product.price || 0);
-  const discountPercentage = hasDiscount 
-    ? Math.round(((product.original_price - product.price) / product.original_price) * 100) 
-    : 0;
-
-  // Theme values
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const hoverBg = useColorModeValue('white', 'gray.750');
-  const textColor = useColorModeValue('gray.700', 'gray.300');
-  const mutedColor = useColorModeValue('gray.500', 'gray.400');
-  const shadowColor = useColorModeValue('rgba(0, 0, 0, 0.1)', 'rgba(0, 0, 0, 0.3)');
-
-  return (
-    <Box 
-      position="relative"
-      h="100%"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Discount Badge */}
-      {hasDiscount && (
-        <Box
-          position="absolute"
-          top="12px"
-          right="12px"
-          bg="red.500"
-          color="white"
-          px={2}
-          py={1}
-          borderRadius="md"
-          fontSize="xs"
-          fontWeight="bold"
-          zIndex="1"
-          boxShadow="sm"
-          transform={isHovered ? 'scale(1.05)' : 'scale(1)'}
-          transition="all 0.2s ease-in-out"
-        >
-          {discountPercentage}% OFF
-        </Box>
-      )}
-      
-      <Card 
-        variant="elevated"
-        h="100%"
-        bg={cardBg}
-        border="1px solid"
-        borderColor={borderColor}
-        borderRadius="xl"
-        overflow="hidden"
-        position="relative"
-        transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-        _hover={{ 
-          transform: 'translateY(-8px)',
-          boxShadow: `0 10px 25px -5px ${shadowColor}, 0 8px 10px -6px ${shadowColor}`,
-          borderColor: 'brand.400',
-        }}
-      >
-        {/* Product Image */}
-        <Box 
-          h="180px" 
-          bg={useColorModeValue('gray.100', 'gray.700')} 
-          position="relative"
-          overflow="hidden"
-        >
-          {product.image_url ? (
-            <Box
-              as="img"
-              src={product.image_url}
-              alt={product.name}
-              objectFit="cover"
-              w="100%"
-              h="100%"
-              transition="transform 0.5s ease-in-out"
-              transform={isHovered ? 'scale(1.05)' : 'scale(1)'}
-            />
-          ) : (
-            <Center h="100%" color={mutedColor}>
-              <ImageIcon boxSize={10} />
-            </Center>
-          )}
-          
-          {/* Stock Status Overlay */}
-          <Box
-            position="absolute"
-            bottom="0"
-            left="0"
-            right="0"
-            bg={isInStock ? 'green.500' : 'red.500'}
-            color="white"
-            px={3}
-            py={1}
-            fontSize="xs"
-            fontWeight="medium"
-            textAlign="center"
-            opacity="0.95"
-          >
-            {isInStock ? 'In Stock' : 'Out of Stock'}
-          </Box>
-        </Box>
-
-        <CardHeader pb={2} px={4} pt={4}>
-          <Heading 
-            size="md" 
-            noOfLines={2} 
-            minH="3.5rem" 
-            lineHeight="1.3"
-            fontWeight="semibold"
-            color={useColorModeValue('gray.800', 'white')}
-            transition="color 0.2s"
-            _hover={{ color: 'brand.500' }}
-          >
-            {product.name}
-          </Heading>
-          
-          {/* Rating */}
-          {product.rating && (
-            <HStack mt={2} spacing={1}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <StarIcon
-                  key={star}
-                  color={star <= Math.round(product.rating) ? 'yellow.400' : 'gray.300'}
-                  boxSize={4}
-                />
-              ))}
-              <Text fontSize="sm" color={mutedColor} ml={1}>
-                ({product.review_count || '0'})
-              </Text>
-            </HStack>
-          )}
-        </CardHeader>
-        
-        <CardBody px={4} py={2}>
-          <Text 
-            fontSize="sm" 
-            color={textColor} 
-            mb={4} 
-            noOfLines={3} 
-            minH="4.5rem"
-          >
-            {product.description || 'No description available'}
-          </Text>
-          
-          {/* Price Section */}
-          <Box mt="auto">
-            <Flex alignItems="center" flexWrap="wrap">
-              <Text 
-                as="span" 
-                fontSize="xl" 
-                fontWeight="bold" 
-                color="brand.500"
-                mr={2}
-              >
-                ${product.price ? Number(product.price).toFixed(2) : 'N/A'}
-              </Text>
-              
-              {hasDiscount && (
-                <>
-                  <Text 
-                    as="s" 
-                    fontSize="sm" 
-                    color={mutedColor} 
-                    mr={2}
-                  >
-                    ${Number(product.original_price).toFixed(2)}
-                  </Text>
-                </>
-              )}
-              
-              {product.shipping_info && (
-                <Badge 
-                  colorScheme="green" 
-                  variant="subtle" 
-                  fontSize="xs"
-                  ml="auto"
-                >
-                  {product.shipping_info}
-                </Badge>
-              )}
-            </Flex>
-            
-            {product.last_updated && (
-              <Text fontSize="xs" color={mutedColor} mt={1}>
-                Updated: {new Date(product.last_updated).toLocaleDateString()}
-              </Text>
-            )}
-          </Box>
-        </CardBody>
-        
-        <CardFooter p={4} pt={0}>
-          <Button
-            as="a"
-            href={hasValidUrl ? productUrl : '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            leftIcon={<ExternalLinkIcon />}
-            colorScheme="brand"
-            size="md"
-            width="100%"
-            isDisabled={!hasValidUrl}
-            _hover={{
-              transform: 'translateY(-2px)',
-              boxShadow: 'lg',
-            }}
-            _active={{
-              transform: 'translateY(0)',
-            }}
-            transition="all 0.2s"
-            borderRadius="lg"
-            py={2}
-            height="auto"
-          >
-            {hasValidUrl ? 'View on Store' : 'No URL Available'}
-          </Button>
-        </CardFooter>
-      </Card>
-    </Box>
-  );
-}
-
-function AddProductModal({ isOpen, onClose, onSuccess }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    url: '',
-    source: 'amazon',
-    price: '',
-    description: '',
+// Enhanced mock data with more realistic products
+const mockProducts = [
+  {
+    id: '1',
+    title: 'Apple iPhone 15 Pro Max 256GB - Natural Titanium (Unlocked)',
+    price: { value: 1199.99, currency: 'USD' },
+    originalPrice: { value: 1299.99, currency: 'USD' },
+    image: 'https://images.pexels.com/photos/788946/pexels-photo-788946.jpeg?auto=compress&cs=tinysrgb&w=600',
+    condition: 'New',
+    seller: { name: 'TechStore Pro', rating: 4.8, feedbackCount: 15420 },
+    shipping: { cost: 0, time: '2-3 days', method: 'Free shipping' },
+    discount: 8,
+    itemWebUrl: 'https://ebay.com/item/123456789',
+    location: 'California, US',
+    watchers: 127,
+    sold: 45,
     category: 'Electronics',
-    in_stock: true
-  });
-  
-  const toast = useToast();
-  const queryClient = useQueryClient();
+  },
+  {
+    id: '2',
+    title: 'Samsung Galaxy S24 Ultra 512GB - Titanium Black (Factory Unlocked)',
+    price: { value: 999.99, currency: 'USD' },
+    originalPrice: { value: 1199.99, currency: 'USD' },
+    image: 'https://images.pexels.com/photos/1092644/pexels-photo-1092644.jpeg?auto=compress&cs=tinysrgb&w=600',
+    condition: 'New',
+    seller: { name: 'Galaxy Store Official', rating: 4.9, feedbackCount: 28350 },
+    shipping: { cost: 15.99, time: '1-2 days', method: 'Express shipping' },
+    discount: 17,
+    itemWebUrl: 'https://ebay.com/item/123456790',
+    location: 'New York, US',
+    watchers: 89,
+    sold: 23,
+    category: 'Electronics',
+  },
+  {
+    id: '3',
+    title: 'MacBook Pro 16" M3 Max 1TB SSD 36GB RAM - Space Black (2024)',
+    price: { value: 2899.99, currency: 'USD' },
+    originalPrice: { value: 3199.99, currency: 'USD' },
+    image: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=600',
+    condition: 'New',
+    seller: { name: 'Apple Authorized Reseller', rating: 4.7, feedbackCount: 9876 },
+    shipping: { cost: 0, time: '3-5 days', method: 'Free shipping' },
+    discount: 9,
+    itemWebUrl: 'https://ebay.com/item/123456791',
+    location: 'Texas, US',
+    watchers: 203,
+    sold: 12,
+    category: 'Computers',
+  },
+  {
+    id: '4',
+    title: 'Sony WH-1000XM5 Wireless Noise Canceling Headphones - Black',
+    price: { value: 299.99, currency: 'USD' },
+    originalPrice: { value: 399.99, currency: 'USD' },
+    image: 'https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg?auto=compress&cs=tinysrgb&w=600',
+    condition: 'New',
+    seller: { name: 'AudioTech Plus', rating: 4.6, feedbackCount: 5432 },
+    shipping: { cost: 9.99, time: '2-4 days', method: 'Standard shipping' },
+    discount: 25,
+    itemWebUrl: 'https://ebay.com/item/123456792',
+    location: 'Florida, US',
+    watchers: 67,
+    sold: 156,
+    category: 'Electronics',
+  },
+  {
+    id: '5',
+    title: 'Nintendo Switch OLED Model - White Console with Joy-Con Controllers',
+    price: { value: 329.99, currency: 'USD' },
+    originalPrice: { value: 349.99, currency: 'USD' },
+    image: 'https://images.pexels.com/photos/442576/pexels-photo-442576.jpeg?auto=compress&cs=tinysrgb&w=600',
+    condition: 'New',
+    seller: { name: 'GameHub Central', rating: 4.8, feedbackCount: 12890 },
+    shipping: { cost: 0, time: '1-3 days', method: 'Free shipping' },
+    discount: 6,
+    itemWebUrl: 'https://ebay.com/item/123456793',
+    location: 'Washington, US',
+    watchers: 234,
+    sold: 89,
+    category: 'Gaming',
+  },
+  {
+    id: '6',
+    title: 'Dell XPS 13 Plus Laptop - Intel i7, 16GB RAM, 512GB SSD - Platinum',
+    price: { value: 1299.99, currency: 'USD' },
+    originalPrice: { value: 1599.99, currency: 'USD' },
+    image: 'https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=600',
+    condition: 'Refurbished',
+    seller: { name: 'Dell Outlet Store', rating: 4.5, feedbackCount: 7654 },
+    shipping: { cost: 0, time: '3-7 days', method: 'Free shipping' },
+    discount: 19,
+    itemWebUrl: 'https://ebay.com/item/123456794',
+    location: 'Illinois, US',
+    watchers: 45,
+    sold: 34,
+    category: 'Computers',
+  },
+];
 
-  // Fetch products with error boundary and loading states
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-
-    const fetchProducts = async () => {
-      try {
-        setIsLoading(true);
-        const response = await productService.getAllProducts({ 
-          signal: controller.signal 
-        });
-        
-        if (isMounted) {
-          setProducts(response.data);
-          setTotalPages(Math.ceil(response.data.length / itemsPerPage));
-          setError(null);
-        }
-      } catch (err) {
-        if (err.name !== 'AbortError' && isMounted) {
-          console.error('Error fetching products:', err);
-          setError('Failed to load products. Please try again later.');
-          toast({
-            title: 'Error',
-            description: 'Failed to load products',
-            status: 'error',
-            duration: 5000,
-            isClosable: true,
-            position: 'top-right'
-          });
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    const timer = setTimeout(() => {
-      fetchProducts();
-    }, 300); // Small delay to prevent flashing on fast networks
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [toast]);
-
-  // Filter and sort products with debounce
-  const filteredAndSortedProducts = useMemo(() => {
-    setIsFiltering(true);
-    let result = [...products];
-
-    // Apply search with debounce
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (product) =>
-          product.name?.toLowerCase().includes(query) ||
-          (product.description && product.description.toLowerCase().includes(query)) ||
-          product.category?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply filters
-    const activeFilters = {};
-    
-    if (filters.inStock) {
-      result = result.filter((product) => product.in_stock);
-      activeFilters.inStock = true;
-    }
-    
-    if (filters.category) {
-      result = result.filter((product) => 
-        product.category?.toLowerCase() === filters.category.toLowerCase()
-      );
-      activeFilters.category = filters.category;
-    }
-    
-    if (filters.minPrice) {
-      const min = Number(filters.minPrice);
-      result = result.filter((product) => product.price >= min);
-      activeFilters.minPrice = min;
-    }
-    
-    if (filters.maxPrice) {
-      const max = Number(filters.maxPrice);
-      result = result.filter((product) => product.price <= max);
-      activeFilters.maxPrice = max;
-    }
-
-    // Update applied filters
-    setAppliedFilters(activeFilters);
-
-    // Apply sorting
-    result.sort((a, b) => {
-      let comparison = 0;
-      if (sortBy === 'name') {
-        comparison = a.name?.localeCompare(b.name) || 0;
-      } else if (sortBy === 'price') {
-        comparison = (a.price || 0) - (b.price || 0);
-      } else if (sortBy === 'rating') {
-        comparison = (a.rating || 0) - (b.rating || 0);
-      } else if (sortBy === 'date') {
-        const dateA = new Date(a.created_at || 0);
-        const dateB = new Date(b.created_at || 0);
-        comparison = dateA - dateB;
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    // Update total pages based on filtered results
-    const totalFilteredItems = result.length;
-    setTotalPages(Math.ceil(totalFilteredItems / itemsPerPage) || 1);
-    
-    // Reset to first page if current page is invalid
-    if (page > Math.ceil(totalFilteredItems / itemsPerPage)) {
-      setPage(1);
-    }
-    
-    // Pagination
-    const startIndex = (page - 1) * itemsPerPage;
-    const paginatedResult = result.slice(startIndex, startIndex + itemsPerPage);
-    
-    // Small delay to show loading state for better UX
-    const timer = setTimeout(() => {
-      setIsFiltering(false);
-    }, 300);
-    
-    return () => clearTimeout(timer);
-    
-    return paginatedResult;
-  }, [products, searchQuery, filters, sortBy, sortOrder, page, itemsPerPage]);
-  
-  // Get unique categories for filter dropdown
-  const categories = useMemo(() => {
-    const uniqueCategories = new Set();
-    products.forEach((product) => {
-      if (product.category) {
-        uniqueCategories.add(product.category);
-      }
-    });
-    return Array.from(uniqueCategories).sort();
-  }, [products]);
-
-  const mutation = useMutation({
-    mutationFn: (data) => productService.createProduct(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['products']);
-      toast({
-        title: 'Product added',
-        description: 'The product has been added successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      onClose();
-    },
-    onError: (error) => {
-      console.error('Error creating product:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add product',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    },
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    mutation.mutate(formData);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Add New Product</ModalHeader>
-        <ModalCloseButton />
-        <form onSubmit={handleSubmit}>
-          <ModalBody>
-            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-              <FormControl isRequired>
-                <FormLabel>Product Name</FormLabel>
-                <Input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter product name"
-                />
-              </FormControl>
-              
-              <FormControl isRequired>
-                <FormLabel>Price ($)</FormLabel>
-                <Input
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                />
-              </FormControl>
-              
-              <FormControl isRequired>
-                <FormLabel>Product URL</FormLabel>
-                <Input
-                  name="url"
-                  type="url"
-                  value={formData.url}
-                  onChange={handleChange}
-                  placeholder="https://example.com/product"
-                />
-              </FormControl>
-              
-              <FormControl isRequired>
-                <FormLabel>Source</FormLabel>
-                <Select
-                  name="source"
-                  value={formData.source}
-                  onChange={handleChange}
-                >
-                  <option value="amazon">Amazon</option>
-                  <option value="flipkart">Flipkart</option>
-                  <option value="other">Other</option>
-                </Select>
-              </FormControl>
-              
-              <FormControl>
-                <FormLabel>Category</FormLabel>
-                <Input
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  placeholder="e.g., Electronics, Clothing"
-                />
-              </FormControl>
-              
-              <FormControl>
-                <FormLabel>Stock Status</FormLabel>
-                <Select
-                  name="in_stock"
-                  value={formData.in_stock}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    in_stock: e.target.value === 'true'
-                  })}
-                >
-                  <option value={true}>In Stock</option>
-                  <option value={false}>Out of Stock</option>
-                </Select>
-              </FormControl>
-              
-              <FormControl gridColumn={{ base: '1 / -1', md: '1 / -1' }}>
-                <FormLabel>Description</FormLabel>
-                <Input
-                  as="textarea"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Enter product description"
-                  rows={3}
-                />
-              </FormControl>
-            </SimpleGrid>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              colorScheme="teal"
-              type="submit"
-              isLoading={mutation.isLoading}
-              isDisabled={!formData.name || !formData.url || !formData.price}
-            >
-              Add Product
-            </Button>
-          </ModalFooter>
-        </form>
-      </ModalContent>
-    </Modal>
-  );
-}
-
-export default function ProductsPage() {
-  // Navigation
-  const navigate = useNavigate();
-  
-  // State management
-  const [products, setProducts] = useState([]);
-  const [isFiltering, setIsFiltering] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('price');
-  const [sortOrder, setSortOrder] = useState('asc');
-  const [filters, setFilters] = useState({
-    inStock: false,
-    category: '',
-    minPrice: '',
-    maxPrice: ''
-  });
-  const [appliedFilters, setAppliedFilters] = useState({});
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const itemsPerPage = 12;
-  
-  // Refs and hooks
-  const filterPanelRef = useRef();
-  const filterButtonRef = useRef();
-  const isMobile = useBreakpointValue({ base: true, md: false });
+// Enhanced Product Card Component
+const ProductCard = ({ product, viewMode = 'grid', onSave, savedItems = [] }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
-  const queryClient = useQueryClient();
-  
-  // Close filter panel when clicking outside
-  useOutsideClick({
-    ref: filterPanelRef,
-    handler: (event) => {
-      if (isFilterPanelOpen && !filterButtonRef.current?.contains(event.target)) {
-        setIsFilterPanelOpen(false);
-      }
-    },
-  });
-  
-  // Memoize the handler to prevent unnecessary re-renders
-  const handleSearch = useCallback((e) => {
-    setSearchTerm(e.target.value);
-  }, [setSearchTerm]);
-  
-  // Add missing dependency to useCallback
-  const handleFilterChange = useCallback((filterName, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterName]: value
-    }));  
-  }, [setFilters]);
 
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setFilters({
-      inStock: false,
-      category: '',
-      minPrice: '',
-      maxPrice: ''
-    });
-    setAppliedFilters({});
-  }, []);
-
-  // Memoize the filtered products
-  const filteredProducts = useMemo(() => {
-    if (!products) return [];
-    return products.filter(product => {
-      if (!product || typeof product !== 'object') return false;
-      
-      const searchTermLower = debouncedSearchTerm.toLowerCase();
-      const matchesSearch = product.name?.toLowerCase().includes(searchTermLower) ||
-                         product.description?.toLowerCase().includes(searchTermLower);
-      
-      const matchesFilters = Object.entries(appliedFilters).every(([key, value]) => {
-        if (!value && value !== false) return true;
-        if (key === 'inStock') return product.inStock === value;
-        if (key === 'category') return product.category === value;
-        if (key === 'minPrice') return Number(product.price) >= Number(value);
-        if (key === 'maxPrice') return Number(product.price) <= Number(value);
-        return true;
-      });
-      
-      return matchesSearch && matchesFilters;
-    });
-  }, [products, debouncedSearchTerm, appliedFilters]);
-  
-  // Handle smooth scroll to top on page/filter change
-  useEffect(() => {
-    const scrollToTop = () => {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
-    };
-    
-    const timer = setTimeout(scrollToTop, 50);
-    
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [page, filters, sortBy, sortOrder, isFilterPanelOpen]);
-  
-  // Define prop types for components
-  const ProductCardProps = {
-    product: PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-      name: PropTypes.string.isRequired,
-      price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      original_price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      imageUrl: PropTypes.string,
-      url: PropTypes.string,
-      source: PropTypes.string,
-      rating: PropTypes.number,
-      reviewCount: PropTypes.number,
-      inStock: PropTypes.bool,
-      category: PropTypes.string,
-      lastUpdated: PropTypes.string,
-      description: PropTypes.string
-    }).isRequired,
-  };
-  
-  const AddProductModalProps = {
-    isOpen: PropTypes.bool.isRequired,
-    onClose: PropTypes.func.isRequired,
-    onSuccess: PropTypes.func.isRequired,
-  };
-  
-  // Assign prop types to components
-  ProductCard.propTypes = ProductCardProps;
-  AddProductModal.propTypes = AddProductModalProps;
-  
-  // Animation variants for grid items with spring effect
-  const gridItemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: (i) => ({
-      opacity: 1,
-      y: 0,
-      transition: {
-        delay: i * 0.05,
-        type: 'spring',
-        stiffness: 100,
-        damping: 15,
-        mass: 0.5
-      }
-    }),
-    exit: { 
-      opacity: 0, 
-      y: -10,
-      transition: { 
-        duration: 0.15,
-        ease: 'easeIn'
-      }
-    },
-    hover: {
-      y: -5,
-      boxShadow: 'lg',
-      transition: {
-        type: 'spring',
-        stiffness: 300,
-        damping: 15
-      }
-    }
-  };
-  
-  // Debounce search term
-  useEffect(() => {
-    const timerId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setPage(1); // Reset to first page on new search
-    }, 500);
-
-    return () => clearTimeout(timerId);
-  }, [searchTerm]);
-
-  // Fetch products
-  const { 
-    data: productsData, 
-    isLoading, 
-    isError, 
-    error,
-    isFetching
-  } = useQuery({
-    queryKey: ['products', { page, search: debouncedSearchTerm, sortBy, sortOrder }],
-    queryFn: () => productService.getProducts({ 
-      page, 
-      search: debouncedSearchTerm,
-      sortBy,
-      sortOrder
-    }),
-    keepPreviousData: true,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Theme values - Enhanced for better contrast and visual hierarchy
-  const { colorMode, toggleColorMode } = useColorMode();
-  const bgColor = useColorModeValue('white', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const inputBg = useColorModeValue('white', 'gray.700');
-  const inputBorder = useColorModeValue('gray.300', 'gray.500');
-  const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
-  const mutedText = useColorModeValue('gray.600', 'gray.300');
-  const sectionBg = useColorModeValue('white', 'gray.800');
-  const headerBg = useColorModeValue('white', 'gray.800');
-  const headerShadow = useColorModeValue('sm', 'dark-lg');
-  const brandColor = useColorModeValue('brand.500', 'brand.300');
-  const hoverBg = useColorModeValue('gray.100', 'gray.700');
-  const activeBg = useColorModeValue('gray.200', 'gray.600');
-  const subtleBg = useColorModeValue('gray.50', 'gray.900');
-  const shadow = useColorModeValue('sm', 'dark-lg');
-  const cardShadow = useColorModeValue('md', 'xl');
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const theme = useTheme();
-  
-  // Animation variants
-  const fadeIn = prefersReducedMotion
-    ? { opacity: 1 }
-    : {
-        opacity: 0,
-        y: 20,
-        transition: { duration: 0.3, ease: 'easeOut' },
-      };
+  const textColor = useColorModeValue('gray.800', 'white');
+  const mutedColor = useColorModeValue('gray.600', 'gray.400');
+  const hoverBg = useColorModeValue('gray.50', 'gray.700');
 
-  // Handle sorting
-  const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
+  const isSaved = savedItems.includes(product.id);
+
+  const handleSave = useCallback((e) => {
+    e?.stopPropagation();
+    onSave(product.id);
+    toast({
+      title: isSaved ? 'Removed from saved' : 'Saved for later',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+      position: 'top-right',
+    });
+  }, [isSaved, onSave, product.id, toast]);
+
+  const formatPrice = useCallback((price) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: price.currency,
+    }).format(price.value);
+  }, []);
+
+  const renderStars = useCallback((rating) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <StarIcon
+        key={i}
+        boxSize={3}
+        color={i < Math.floor(rating) ? 'yellow.400' : 'gray.300'}
+      />
+    ));
+  }, []);
+
+  const calculateSavings = useCallback(() => {
+    if (product.originalPrice && product.originalPrice.value > product.price.value) {
+      return product.originalPrice.value - product.price.value;
     }
-    setPage(1);
-  };
+    return 0;
+  }, [product]);
 
-  // Generate sort label based on current sort state
-  const getSortLabel = () => {
-    if (sortBy === 'price') {
-      return sortOrder === 'asc' ? 'Price: Low to High' : 'Price: High to Low';
-    } else if (sortBy === 'name') {
-      return sortOrder === 'asc' ? 'Name: A to Z' : 'Name: Z to A';
-    } else if (sortBy === 'rating') {
-      return 'Highest Rated';
-    }
-    return 'Sort By';
-  };
-
-  // Sort indicator component
-  const SortIndicator = ({ field }) => {
-    if (sortBy !== field) return null;
-    return sortOrder === 'asc' ? '↑' : '↓';
-  };
-
-  // Handle error state
-  if (isError) {
+  // List view layout
+  if (viewMode === 'list') {
     return (
-      <Container maxW="container.xl" py={8}>
-        <Alert status="error" mb={6} borderRadius="lg">
-          <AlertIcon />
-          <Box>
-            <AlertTitle>Error loading products</AlertTitle>
-            <AlertDescription>
-              {error.message || 'Failed to load products. Please try again later.'}
-            </AlertDescription>
+      <MotionCard
+        bg={cardBg}
+        borderColor={borderColor}
+        borderWidth="1px"
+        borderRadius="lg"
+        overflow="hidden"
+        cursor="pointer"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        whileHover={{ y: -2, boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+        transition={{ duration: 0.2 }}
+        _hover={{
+          borderColor: 'brand.400',
+          bg: hoverBg,
+        }}
+        onClick={onOpen}
+      >
+        <Flex>
+          <Box position="relative" minW="200px" w="200px">
+            <AspectRatio ratio={1}>
+              {imageError ? (
+                <Center bg="gray.100" color="gray.500">
+                  <VStack>
+                    <WarningIcon boxSize={8} />
+                    <Text fontSize="sm">Image unavailable</Text>
+                  </VStack>
+                </Center>
+              ) : (
+                <Image
+                  src={product.image}
+                  alt={product.title}
+                  objectFit="cover"
+                  transition="transform 0.3s"
+                  transform={isHovered ? 'scale(1.05)' : 'scale(1)'}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImageError(true)}
+                  opacity={imageLoaded ? 1 : 0}
+                />
+              )}
+            </AspectRatio>
+            
+            {product.discount > 0 && (
+              <Badge
+                position="absolute"
+                top={2}
+                left={2}
+                colorScheme="red"
+                variant="solid"
+                fontSize="xs"
+                px={2}
+                py={1}
+                borderRadius="md"
+              >
+                -{product.discount}%
+              </Badge>
+            )}
           </Box>
-        </Alert>
-        <Button 
-          colorScheme="brand" 
-          onClick={() => queryClient.refetchQueries(['products'])}
-          leftIcon={<RepeatIcon />}
+          
+          <CardBody flex="1" p={6}>
+            <Flex justify="space-between" align="start" h="100%">
+              <VStack align="start" spacing={3} flex="1" mr={4}>
+                <Text
+                  fontSize="lg"
+                  fontWeight="semibold"
+                  color={textColor}
+                  noOfLines={2}
+                  lineHeight="1.3"
+                  _hover={{ color: 'brand.500' }}
+                  transition="color 0.2s"
+                >
+                  {product.title}
+                </Text>
+                
+                <HStack spacing={2} flexWrap="wrap">
+                  <Badge colorScheme="green" variant="subtle" borderRadius="md">
+                    {product.condition}
+                  </Badge>
+                  <Badge colorScheme="blue" variant="outline" borderRadius="md">
+                    {product.category}
+                  </Badge>
+                  {product.sold > 0 && (
+                    <Badge colorScheme="purple" variant="subtle" borderRadius="md">
+                      {product.sold} sold
+                    </Badge>
+                  )}
+                </HStack>
+                
+                <HStack spacing={1} align="center">
+                  {renderStars(product.seller.rating)}
+                  <Text fontSize="sm" color={mutedColor} ml={1}>
+                    {product.seller.name} ({product.seller.feedbackCount.toLocaleString()})
+                  </Text>
+                </HStack>
+                
+                <VStack align="start" spacing={1}>
+                  <Text fontSize="sm" color={mutedColor}>
+                    <Text as="span" fontWeight="semibold">Shipping:</Text>{' '}
+                    {product.shipping.cost === 0 ? 'Free' : formatPrice({ value: product.shipping.cost, currency: 'USD' })} • {product.shipping.time}
+                  </Text>
+                  <Text fontSize="sm" color={mutedColor}>
+                    <Text as="span" fontWeight="semibold">Location:</Text> {product.location}
+                  </Text>
+                  {product.watchers > 0 && (
+                    <Text fontSize="sm" color={mutedColor}>
+                      <Text as="span" fontWeight="semibold">Watchers:</Text> {product.watchers}
+                    </Text>
+                  )}
+                </VStack>
+              </VStack>
+              
+              <VStack align="end" spacing={3} minW="200px">
+                <VStack align="end" spacing={1}>
+                  <Text fontSize="2xl" fontWeight="bold" color="brand.500">
+                    {formatPrice(product.price)}
+                  </Text>
+                  {product.originalPrice && product.originalPrice.value > product.price.value && (
+                    <VStack align="end" spacing={0}>
+                      <Text
+                        fontSize="sm"
+                        color={mutedColor}
+                        textDecoration="line-through"
+                      >
+                        {formatPrice(product.originalPrice)}
+                      </Text>
+                      <Text fontSize="sm" color="green.500" fontWeight="semibold">
+                        Save ${calculateSavings().toFixed(2)}
+                      </Text>
+                    </VStack>
+                  )}
+                </VStack>
+                
+                <HStack spacing={2}>
+                  <Tooltip label={isSaved ? 'Remove from saved' : 'Save for later'}>
+                    <IconButton
+                      icon={<HeartIcon />}
+                      size="sm"
+                      variant={isSaved ? 'solid' : 'ghost'}
+                      colorScheme={isSaved ? 'red' : 'gray'}
+                      onClick={handleSave}
+                      _hover={{
+                        transform: 'scale(1.1)',
+                      }}
+                      transition="all 0.2s"
+                    />
+                  </Tooltip>
+                  
+                  <Button
+                    size="sm"
+                    colorScheme="brand"
+                    rightIcon={<ExternalLinkIcon />}
+                    as={Link}
+                    href={product.itemWebUrl}
+                    isExternal
+                    onClick={(e) => e.stopPropagation()}
+                    _hover={{
+                      transform: 'translateY(-1px)',
+                      boxShadow: 'md',
+                    }}
+                    transition="all 0.2s"
+                  >
+                    View on eBay
+                  </Button>
+                </HStack>
+              </VStack>
+            </Flex>
+          </CardBody>
+        </Flex>
+      </MotionCard>
+    );
+  }
+
+  // Grid view layout
+  return (
+    <MotionCard
+      bg={cardBg}
+      borderColor={borderColor}
+      borderWidth="1px"
+      borderRadius="xl"
+      overflow="hidden"
+      cursor="pointer"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}
+      transition={{ duration: 0.3 }}
+      _hover={{
+        borderColor: 'brand.400',
+      }}
+      h="100%"
+      display="flex"
+      flexDirection="column"
+      onClick={onOpen}
+    >
+      <Box position="relative">
+        <AspectRatio ratio={4/3}>
+          {imageError ? (
+            <Center bg="gray.100" color="gray.500">
+              <VStack>
+                <WarningIcon boxSize={8} />
+                <Text fontSize="sm">Image unavailable</Text>
+              </VStack>
+            </Center>
+          ) : (
+            <Image
+              src={product.image}
+              alt={product.title}
+              objectFit="cover"
+              transition="transform 0.3s"
+              transform={isHovered ? 'scale(1.05)' : 'scale(1)'}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+              opacity={imageLoaded ? 1 : 0}
+            />
+          )}
+        </AspectRatio>
+        
+        {!imageLoaded && !imageError && (
+          <Skeleton position="absolute" top={0} left={0} right={0} bottom={0} />
+        )}
+        
+        {product.discount > 0 && (
+          <Badge
+            position="absolute"
+            top={3}
+            left={3}
+            colorScheme="red"
+            variant="solid"
+            fontSize="xs"
+            px={3}
+            py={1}
+            borderRadius="full"
+            fontWeight="bold"
+          >
+            -{product.discount}%
+          </Badge>
+        )}
+        
+        <IconButton
+          icon={<HeartIcon />}
+          position="absolute"
+          top={3}
+          right={3}
+          size="sm"
+          variant={isSaved ? 'solid' : 'ghost'}
+          bg={isSaved ? 'red.500' : 'whiteAlpha.900'}
+          color={isSaved ? 'white' : 'gray.600'}
+          _hover={{
+            bg: isSaved ? 'red.600' : 'whiteAlpha.800',
+            transform: 'scale(1.1)',
+          }}
+          onClick={handleSave}
+          opacity={isHovered || isSaved ? 1 : 0.7}
+          transition="all 0.2s"
+          borderRadius="full"
+        />
+
+        {product.watchers > 0 && (
+          <Badge
+            position="absolute"
+            bottom={3}
+            left={3}
+            colorScheme="blue"
+            variant="subtle"
+            fontSize="xs"
+            px={2}
+            py={1}
+            borderRadius="md"
+            opacity={isHovered ? 1 : 0}
+            transition="opacity 0.2s"
+          >
+            <ViewIcon boxSize={2} mr={1} />
+            {product.watchers} watching
+          </Badge>
+        )}
+      </Box>
+      
+      <CardBody p={4} flex="1" display="flex" flexDirection="column">
+        <VStack align="start" spacing={3} flex="1">
+          <Text
+            fontSize="md"
+            fontWeight="semibold"
+            color={textColor}
+            noOfLines={2}
+            lineHeight="1.3"
+            _hover={{ color: 'brand.500' }}
+            transition="color 0.2s"
+            minH="2.6em"
+          >
+            {product.title}
+          </Text>
+          
+          <HStack spacing={2} flexWrap="wrap">
+            <Badge colorScheme="green" variant="subtle" fontSize="xs" borderRadius="md">
+              {product.condition}
+            </Badge>
+            {product.sold > 0 && (
+              <Badge colorScheme="purple" variant="subtle" fontSize="xs" borderRadius="md">
+                {product.sold} sold
+              </Badge>
+            )}
+          </HStack>
+          
+          <VStack align="start" spacing={2} flex="1">
+            <HStack spacing={0} align="baseline">
+              <Text fontSize="xl" fontWeight="bold" color="brand.500">
+                {formatPrice(product.price)}
+              </Text>
+              {product.originalPrice && product.originalPrice.value > product.price.value && (
+                <Text
+                  fontSize="sm"
+                  color={mutedColor}
+                  textDecoration="line-through"
+                  ml={2}
+                >
+                  {formatPrice(product.originalPrice)}
+                </Text>
+              )}
+            </HStack>
+            
+            {calculateSavings() > 0 && (
+              <Text fontSize="sm" color="green.500" fontWeight="semibold">
+                Save ${calculateSavings().toFixed(2)}
+              </Text>
+            )}
+            
+            <Text fontSize="xs" color={mutedColor}>
+              {product.shipping.cost === 0 ? 'Free shipping' : `+${formatPrice({ value: product.shipping.cost, currency: 'USD' })} shipping`} • {product.shipping.time}
+            </Text>
+          </VStack>
+          
+          <HStack spacing={1} align="center" w="100%">
+            {renderStars(product.seller.rating)}
+            <Text fontSize="xs" color={mutedColor} ml={1} noOfLines={1}>
+              {product.seller.name}
+            </Text>
+          </HStack>
+        </VStack>
+        
+        <Button
+          size="sm"
+          colorScheme="brand"
+          rightIcon={<ExternalLinkIcon />}
+          as={Link}
+          href={product.itemWebUrl}
+          isExternal
+          mt={3}
+          w="100%"
+          onClick={(e) => e.stopPropagation()}
+          _hover={{
+            transform: 'translateY(-1px)',
+            boxShadow: 'md',
+          }}
+          transition="all 0.2s"
         >
-          Retry
+          View on eBay
         </Button>
-      </Container>
+      </CardBody>
+
+      {/* Enhanced Product Details Modal */}
+      <Modal isOpen={isOpen} onClose={onClose} size="6xl">
+        <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(10px)" />
+        <ModalContent maxW="90vw" maxH="90vh">
+          <ModalHeader pb={2}>
+            <VStack align="start" spacing={2}>
+              <Text fontSize="xl" fontWeight="bold" noOfLines={2}>
+                {product.title}
+              </Text>
+              <HStack spacing={2}>
+                <Badge colorScheme="green" variant="subtle">
+                  {product.condition}
+                </Badge>
+                <Badge colorScheme="blue" variant="outline">
+                  {product.category}
+                </Badge>
+                {product.discount > 0 && (
+                  <Badge colorScheme="red" variant="solid">
+                    -{product.discount}% OFF
+                  </Badge>
+                )}
+              </HStack>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6} overflowY="auto">
+            <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={8}>
+              <Box>
+                <AspectRatio ratio={1} mb={4}>
+                  <Image
+                    src={product.image}
+                    alt={product.title}
+                    objectFit="cover"
+                    borderRadius="lg"
+                    boxShadow="lg"
+                  />
+                </AspectRatio>
+                
+                <VStack align="start" spacing={3}>
+                  <Heading size="md" color={textColor}>
+                    Product Details
+                  </Heading>
+                  
+                  <SimpleGrid columns={2} spacing={4} w="100%">
+                    <Box>
+                      <Text fontSize="sm" color={mutedColor} fontWeight="semibold">
+                        Condition
+                      </Text>
+                      <Text fontSize="md">{product.condition}</Text>
+                    </Box>
+                    
+                    <Box>
+                      <Text fontSize="sm" color={mutedColor} fontWeight="semibold">
+                        Category
+                      </Text>
+                      <Text fontSize="md">{product.category}</Text>
+                    </Box>
+                    
+                    <Box>
+                      <Text fontSize="sm" color={mutedColor} fontWeight="semibold">
+                        Location
+                      </Text>
+                      <Text fontSize="md">{product.location}</Text>
+                    </Box>
+                    
+                    <Box>
+                      <Text fontSize="sm" color={mutedColor} fontWeight="semibold">
+                        Watchers
+                      </Text>
+                      <Text fontSize="md">{product.watchers}</Text>
+                    </Box>
+                  </SimpleGrid>
+                </VStack>
+              </Box>
+              
+              <VStack align="start" spacing={6}>
+                <VStack align="start" spacing={3} w="100%">
+                  <HStack spacing={0} align="baseline">
+                    <Text fontSize="4xl" fontWeight="bold" color="brand.500">
+                      {formatPrice(product.price)}
+                    </Text>
+                    {product.originalPrice && product.originalPrice.value > product.price.value && (
+                      <Text
+                        fontSize="xl"
+                        color={mutedColor}
+                        textDecoration="line-through"
+                        ml={3}
+                      >
+                        {formatPrice(product.originalPrice)}
+                      </Text>
+                    )}
+                  </HStack>
+                  
+                  {calculateSavings() > 0 && (
+                    <HStack>
+                      <Badge colorScheme="green" variant="solid" fontSize="md" px={4} py={2} borderRadius="full">
+                        <CheckIcon boxSize={3} mr={2} />
+                        You save ${calculateSavings().toFixed(2)} ({product.discount}%)
+                      </Badge>
+                    </HStack>
+                  )}
+                </VStack>
+                
+                <Divider />
+                
+                <VStack align="start" spacing={4} w="100%">
+                  <Heading size="md" color={textColor}>
+                    Seller Information
+                  </Heading>
+                  
+                  <HStack justify="space-between" w="100%">
+                    <VStack align="start" spacing={1}>
+                      <Text fontWeight="semibold" fontSize="lg">
+                        {product.seller.name}
+                      </Text>
+                      <HStack>
+                        {renderStars(product.seller.rating)}
+                        <Text fontSize="sm" color={mutedColor}>
+                          ({product.seller.feedbackCount.toLocaleString()} reviews)
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </HStack>
+                  
+                  <Box w="100%" p={4} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="lg">
+                    <VStack align="start" spacing={3}>
+                      <HStack justify="space-between" w="100%">
+                        <Text fontWeight="semibold">Shipping:</Text>
+                        <Text>
+                          {product.shipping.cost === 0 ? 'Free' : formatPrice({ value: product.shipping.cost, currency: 'USD' })}
+                        </Text>
+                      </HStack>
+                      
+                      <HStack justify="space-between" w="100%">
+                        <Text fontWeight="semibold">Delivery:</Text>
+                        <Text>{product.shipping.time}</Text>
+                      </HStack>
+                      
+                      <HStack justify="space-between" w="100%">
+                        <Text fontWeight="semibold">Method:</Text>
+                        <Text>{product.shipping.method}</Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                </VStack>
+                
+                <Divider />
+                
+                <VStack spacing={4} w="100%">
+                  <Button
+                    size="lg"
+                    colorScheme="brand"
+                    rightIcon={<ExternalLinkIcon />}
+                    as={Link}
+                    href={product.itemWebUrl}
+                    isExternal
+                    w="100%"
+                    py={6}
+                    fontSize="lg"
+                    _hover={{
+                      transform: 'translateY(-2px)',
+                      boxShadow: 'xl',
+                    }}
+                    transition="all 0.2s"
+                  >
+                    View on eBay
+                  </Button>
+                  
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    leftIcon={<HeartIcon />}
+                    onClick={handleSave}
+                    w="100%"
+                    py={6}
+                    fontSize="lg"
+                    colorScheme={isSaved ? 'red' : 'gray'}
+                    _hover={{
+                      transform: 'translateY(-2px)',
+                      boxShadow: 'md',
+                    }}
+                    transition="all 0.2s"
+                  >
+                    {isSaved ? 'Remove from Saved' : 'Save for Later'}
+                  </Button>
+                </VStack>
+              </VStack>
+            </Grid>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    </MotionCard>
+  );
+};
+
+// Enhanced Filters Component
+const FiltersSidebar = ({ filters, onFiltersChange, isOpen, onClose }) => {
+  const [priceRange, setPriceRange] = useState(filters.priceRange || [0, 5000]);
+  const [selectedConditions, setSelectedConditions] = useState(filters.conditions || []);
+  const [minRating, setMinRating] = useState(filters.minRating || 0);
+  const [shippingOptions, setShippingOptions] = useState(filters.shipping || []);
+  const [selectedCategories, setSelectedCategories] = useState(filters.categories || []);
+
+  const bg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+
+  const conditions = ['New', 'Used', 'Refurbished', 'For parts or not working'];
+  const shipping = ['Free shipping', 'Fast shipping', 'Local pickup'];
+  const categories = ['Electronics', 'Computers', 'Gaming', 'Mobile Phones', 'Audio'];
+
+  const handleApplyFilters = useCallback(() => {
+    const newFilters = {
+      priceRange,
+      conditions: selectedConditions,
+      minRating,
+      shipping: shippingOptions,
+      categories: selectedCategories,
+    };
+    onFiltersChange(newFilters);
+    onClose();
+  }, [priceRange, selectedConditions, minRating, shippingOptions, selectedCategories, onFiltersChange, onClose]);
+
+  const handleClearFilters = useCallback(() => {
+    setPriceRange([0, 5000]);
+    setSelectedConditions([]);
+    setMinRating(0);
+    setShippingOptions([]);
+    setSelectedCategories([]);
+    onFiltersChange({});
+  }, [onFiltersChange]);
+
+  const activeFiltersCount = [
+    selectedConditions.length > 0,
+    minRating > 0,
+    shippingOptions.length > 0,
+    selectedCategories.length > 0,
+    priceRange[0] > 0 || priceRange[1] < 5000,
+  ].filter(Boolean).length;
+
+  const FilterContent = () => (
+    <VStack spacing={6} align="stretch">
+      {/* Price Range */}
+      <Box>
+        <HStack justify="space-between" mb={3}>
+          <Text fontWeight="semibold">Price Range</Text>
+          <Text fontSize="sm" color="gray.500">
+            ${priceRange[0]} - ${priceRange[1]}
+          </Text>
+        </HStack>
+        <RangeSlider
+          value={priceRange}
+          onChange={setPriceRange}
+          min={0}
+          max={5000}
+          step={50}
+          colorScheme="brand"
+        >
+          <RangeSliderTrack>
+            <RangeSliderFilledTrack />
+          </RangeSliderTrack>
+          <RangeSliderThumb index={0} />
+          <RangeSliderThumb index={1} />
+        </RangeSlider>
+      </Box>
+
+      <Divider />
+
+      {/* Categories */}
+      <Box>
+        <Text fontWeight="semibold" mb={3}>
+          Categories
+        </Text>
+        <CheckboxGroup value={selectedCategories} onChange={setSelectedCategories}>
+          <VStack align="start" spacing={2}>
+            {categories.map((category) => (
+              <Checkbox key={category} value={category} size="sm" colorScheme="brand">
+                {category}
+              </Checkbox>
+            ))}
+          </VStack>
+        </CheckboxGroup>
+      </Box>
+
+      <Divider />
+
+      {/* Condition */}
+      <Box>
+        <Text fontWeight="semibold" mb={3}>
+          Condition
+        </Text>
+        <CheckboxGroup value={selectedConditions} onChange={setSelectedConditions}>
+          <VStack align="start" spacing={2}>
+            {conditions.map((condition) => (
+              <Checkbox key={condition} value={condition} size="sm" colorScheme="brand">
+                {condition}
+              </Checkbox>
+            ))}
+          </VStack>
+        </CheckboxGroup>
+      </Box>
+
+      <Divider />
+
+      {/* Seller Rating */}
+      <Box>
+        <Text fontWeight="semibold" mb={3}>
+          Minimum Seller Rating
+        </Text>
+        <RadioGroup value={minRating.toString()} onChange={(value) => setMinRating(Number(value))}>
+          <VStack align="start" spacing={2}>
+            {[4, 3, 2, 1, 0].map((rating) => (
+              <Radio key={rating} value={rating.toString()} size="sm" colorScheme="brand">
+                <HStack spacing={1}>
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <StarIcon
+                      key={i}
+                      boxSize={3}
+                      color={i < rating ? 'yellow.400' : 'gray.300'}
+                    />
+                  ))}
+                  <Text fontSize="sm" ml={1}>
+                    {rating > 0 ? `${rating}+ stars` : 'Any rating'}
+                  </Text>
+                </HStack>
+              </Radio>
+            ))}
+          </VStack>
+        </RadioGroup>
+      </Box>
+
+      <Divider />
+
+      {/* Shipping Options */}
+      <Box>
+        <Text fontWeight="semibold" mb={3}>
+          Shipping
+        </Text>
+        <CheckboxGroup value={shippingOptions} onChange={setShippingOptions}>
+          <VStack align="start" spacing={2}>
+            {shipping.map((option) => (
+              <Checkbox key={option} value={option} size="sm" colorScheme="brand">
+                {option}
+              </Checkbox>
+            ))}
+          </VStack>
+        </CheckboxGroup>
+      </Box>
+
+      <VStack spacing={3} pt={4}>
+        <Button colorScheme="brand" onClick={handleApplyFilters} w="100%" size="md">
+          Apply Filters {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+        </Button>
+        {activeFiltersCount > 0 && (
+          <Button variant="outline" onClick={handleClearFilters} w="100%" size="sm">
+            Clear All Filters
+          </Button>
+        )}
+      </VStack>
+    </VStack>
+  );
+
+  return (
+    <Box
+      bg={bg}
+      borderColor={borderColor}
+      borderWidth="1px"
+      borderRadius="lg"
+      p={6}
+      h="fit-content"
+      position="sticky"
+      top={4}
+    >
+      <Flex justify="space-between" align="center" mb={6}>
+        <Heading size="md">
+          Filters {activeFiltersCount > 0 && (
+            <Badge colorScheme="brand" ml={2} borderRadius="full">
+              {activeFiltersCount}
+            </Badge>
+          )}
+        </Heading>
+        <IconButton
+          icon={<CloseIcon />}
+          size="sm"
+          variant="ghost"
+          onClick={onClose}
+          display={{ base: 'flex', lg: 'none' }}
+        />
+      </Flex>
+
+      <FilterContent />
+    </Box>
+  );
+};
+
+// Loading Skeleton Component
+const ProductSkeleton = ({ viewMode }) => {
+  if (viewMode === 'list') {
+    return (
+      <Card>
+        <Flex>
+          <Skeleton width="200px" height="200px" />
+          <CardBody flex="1">
+            <VStack align="start" spacing={3}>
+              <Skeleton height="20px" width="80%" />
+              <Skeleton height="16px" width="60%" />
+              <HStack>
+                <Skeleton height="20px" width="60px" />
+                <Skeleton height="20px" width="80px" />
+              </HStack>
+              <Skeleton height="16px" width="70%" />
+            </VStack>
+          </CardBody>
+        </Flex>
+      </Card>
     );
   }
 
   return (
-    <Box minH="100vh" bg={bgColor}>
-      {/* Sticky Header */}
-      <Box 
-        as="header" 
-        position="sticky" 
-        top="0" 
-        zIndex="sticky" 
-        bg={headerBg}
-        boxShadow={headerShadow}
-        borderBottomWidth="1px"
-        borderColor={borderColor}
-        backdropFilter="blur(10px)"
-        sx={{
-          '@supports (backdrop-filter: blur(10px))': {
-            bg: colorMode === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(26, 32, 44, 0.8)',
-          },
-        }}
-      >
-        <Container maxW="container.xl" py={3}>
-          <Flex justify="space-between" align="center">
-            <HStack spacing={4}>
-              <Button 
-                as={RouterLink} 
-                to="/" 
-                variant="ghost" 
-                leftIcon={<ChevronLeftIcon />}
-                _hover={{ bg: hoverBg }}
-                _active={{ bg: activeBg }}
-                size={{ base: 'sm', md: 'md' }}
-              >
-                Back to Home
-              </Button>
-              <Button
-                as={RouterLink}
-                to="/"
-                variant="ghost"
-                leftIcon={<MdHome />}
-                size={{ base: 'sm', md: 'md' }}
-                _hover={{ bg: hoverBg }}
-                _active={{ bg: activeBg }}
-                display={{ base: 'none', md: 'flex' }}
-              >
-                Home
-              </Button>
-            </HStack>
-            <HStack spacing={3}>
-              <IconButton
-                icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-                onClick={toggleColorMode}
-                variant="ghost"
-                aria-label="Toggle color mode"
-                _hover={{ bg: hoverBg }}
-                _active={{ bg: activeBg }}
-                size={{ base: 'sm', md: 'md' }}
-              />
-              <Tooltip label={!user ? 'Sign in to add products' : ''} placement="bottom" hasArrow>
-                <Button
-                  as={user ? RouterLink : 'button'}
-                  to={user ? "/products/new" : "#"}
-                  colorScheme="brand"
-                  leftIcon={<AddIcon />}
-                  size={{ base: 'sm', md: 'md' }}
-                  _hover={{
-                    transform: user ? 'translateY(-2px)' : 'none',
-                    boxShadow: user ? 'lg' : 'none',
+    <Card>
+      <Skeleton height="200px" />
+      <CardBody>
+        <VStack align="start" spacing={3}>
+          <Skeleton height="20px" width="90%" />
+          <Skeleton height="16px" width="70%" />
+          <HStack>
+            <Skeleton height="20px" width="60px" />
+            <Skeleton height="20px" width="40px" />
+          </HStack>
+          <Skeleton height="32px" width="100%" />
+        </VStack>
+      </CardBody>
+    </Card>
+  );
+};
+
+// Main ProductsPage Component
+const ProductsPage = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
+  const [sortBy, setSortBy] = useState('best_match');
+  const [filters, setFilters] = useState({});
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [products, setProducts] = useState(mockProducts);
+  const [isLoading, setIsLoading] = useState(false);
+  const [savedItems, setSavedItems] = useState([]);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [error, setError] = useState(null);
+
+  const isMobile = useBreakpointValue({ base: true, lg: false });
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const bg = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+
+  // Load saved items from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('savedItems');
+    if (saved) {
+      setSavedItems(JSON.parse(saved));
+    }
+    
+    const history = localStorage.getItem('searchHistory');
+    if (history) {
+      setSearchHistory(JSON.parse(history));
+    }
+  }, []);
+
+  // Save items to localStorage
+  const handleSaveItem = useCallback((productId) => {
+    setSavedItems(prev => {
+      const newSaved = prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId];
+      
+      localStorage.setItem('savedItems', JSON.stringify(newSaved));
+      return newSaved;
+    });
+  }, []);
+
+  // Search function with error handling
+  const handleSearch = useCallback(async (query = searchQuery) => {
+    if (!query.trim()) {
+      setError('Please enter a search term');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Add to search history
+      const newHistory = [query, ...searchHistory.filter(h => h !== query)].slice(0, 5);
+      setSearchHistory(newHistory);
+      localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+
+      // Simulate API call with realistic delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Filter mock data based on search query
+      const filtered = mockProducts.filter(product =>
+        product.title.toLowerCase().includes(query.toLowerCase()) ||
+        product.category.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      setProducts(filtered);
+      
+      if (filtered.length === 0) {
+        toast({
+          title: 'No results found',
+          description: `No products found for "${query}". Try different keywords.`,
+          status: 'info',
+          duration: 4000,
+          isClosable: true,
+        });
+      }
+    } catch (error) {
+      setError('Search failed. Please try again.');
+      toast({
+        title: 'Search failed',
+        description: 'Please check your connection and try again',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery, searchHistory, toast]);
+
+  // Apply filters to products
+  const filteredProducts = useMemo(() => {
+    let filtered = [...products];
+    
+    if (filters.priceRange) {
+      filtered = filtered.filter(p => 
+        p.price.value >= filters.priceRange[0] && p.price.value <= filters.priceRange[1]
+      );
+    }
+    
+    if (filters.conditions?.length > 0) {
+      filtered = filtered.filter(p => filters.conditions.includes(p.condition));
+    }
+    
+    if (filters.categories?.length > 0) {
+      filtered = filtered.filter(p => filters.categories.includes(p.category));
+    }
+    
+    if (filters.minRating > 0) {
+      filtered = filtered.filter(p => p.seller.rating >= filters.minRating);
+    }
+    
+    if (filters.shipping?.includes('Free shipping')) {
+      filtered = filtered.filter(p => p.shipping.cost === 0);
+    }
+    
+    return filtered;
+  }, [products, filters]);
+
+  // Sort products
+  const sortedProducts = useMemo(() => {
+    const sorted = [...filteredProducts];
+    switch (sortBy) {
+      case 'price_low':
+        return sorted.sort((a, b) => a.price.value - b.price.value);
+      case 'price_high':
+        return sorted.sort((a, b) => b.price.value - a.price.value);
+      case 'rating':
+        return sorted.sort((a, b) => b.seller.rating - a.seller.rating);
+      case 'discount':
+        return sorted.sort((a, b) => b.discount - a.discount);
+      case 'newest':
+        return sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      default:
+        return sorted;
+    }
+  }, [filteredProducts, sortBy]);
+
+  // Active filters count
+  const activeFiltersCount = useMemo(() => {
+    return [
+      filters.conditions?.length > 0,
+      filters.categories?.length > 0,
+      filters.minRating > 0,
+      filters.shipping?.length > 0,
+      filters.priceRange && (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000),
+    ].filter(Boolean).length;
+  }, [filters]);
+
+  return (
+    <Box bg={bg} minH="100vh">
+      <Container maxW="container.xl" py={8}>
+        {/* Enhanced Search Header */}
+        <VStack spacing={6} mb={8}>
+          <Box w="100%" maxW="3xl">
+            <VStack spacing={4}>
+              <InputGroup size="lg">
+                <InputLeftElement>
+                  <SearchIcon color="gray.400" />
+                </InputLeftElement>
+                <Input
+                  placeholder="Search for products on eBay..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  bg={cardBg}
+                  borderColor="gray.300"
+                  borderWidth="2px"
+                  _hover={{ borderColor: 'brand.400' }}
+                  _focus={{ 
+                    borderColor: 'brand.500', 
+                    boxShadow: '0 0 0 1px var(--chakra-colors-brand-500)' 
                   }}
-                  _disabled={{
-                    opacity: 0.7,
-                    cursor: 'not-allowed',
-                  }}
-                  onClick={!user ? () => setShowLoginPrompt(true) : undefined}
-                  transition="all 0.2s"
-                >
-                  <Box as="span" display={{ base: 'none', md: 'inline' }}>Add Product</Box>
-                  <Box as="span" display={{ base: 'inline', md: 'none' }}><AddIcon /></Box>
-                </Button>
-              </Tooltip>
-            </HStack>
-          </Flex>
-        </Container>
-      </Box>
-
-      <Container maxW="container.xl" py={8} px={{ base: 4, md: 6 }}>
-        <VStack spacing={6} align="stretch">
-          {/* Login Prompt */}
-          {showLoginPrompt && (
-            <Alert 
-              status="info"
-              variant="subtle"
-              flexDirection="column"
-              alignItems="center"
-              justifyContent="center"
-              textAlign="center"
-              py={6}
-              borderRadius="md"
-              mb={6}
-              bg={useColorModeValue('blue.50', 'blue.900')}
-            >
-              <AlertIcon boxSize="40px" mr={0} />
-              <Box mt={4} mb={2}>
-                <AlertTitle>Sign In Required</AlertTitle>
-                <AlertDescription maxWidth="md">
-                  You need to be logged in to add products. Please sign in or create an account to continue.
-                </AlertDescription>
-              </Box>
-              <HStack spacing={4} mt={4}>
-                <Button 
-                  colorScheme="blue" 
-                  onClick={() => {
-                    setShowLoginPrompt(false);
-                    navigate('/login', { state: { from: '/products' } });
-                  }}
-                >
-                  Sign In
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setShowLoginPrompt(false)}
-                >
-                  Cancel
-                </Button>
-              </HStack>
-            </Alert>
-          )}
-
-          {/* Page Header */}
-          <Box mb={6}>
-            <Heading size="2xl" color={textColor} mb={2} fontWeight="bold">
-              Tracked Products
-            </Heading>
-            <Text fontSize="lg" color={mutedText}>
-              {productsData?.total || 'No'} product{productsData?.total !== 1 ? 's' : ''} found
-              {searchTerm && ` matching "${searchTerm}"`}
-            </Text>
-          </Box>
-
-          {/* Search and Filter Bar */}
-          <Box
-            mb={8}
-            p={6}
-            bg={sectionBg}
-            borderRadius="xl"
-            boxShadow="sm"
-            borderWidth="1px"
-            borderColor={borderColor}
-            transition="all 0.2s"
-            _hover={{
-              boxShadow: 'md',
-              transform: 'translateY(-1px)'
-            }}
-          >
-            <Flex direction={{ base: 'column', md: 'row' }} gap={4}>
-              {/* Search Input */}
-              <Box flex="1">
-                <InputGroup size="lg">
-                  <InputLeftElement pointerEvents="none">
-                    <SearchIcon color="gray.400" />
-                  </InputLeftElement>
-                  <Input
-                    placeholder="Search products by name, category, or description..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    bg={useColorModeValue('white', 'gray.800')}
-                    borderColor={useColorModeValue('gray.200', 'gray.600')}
-                    _hover={{
-                      borderColor: useColorModeValue('gray.300', 'gray.500'),
-                    }}
-                    _focus={{
-                      borderColor: 'brand.500',
-                      boxShadow: '0 0 0 1px var(--chakra-colors-brand-500)',
-                    }}
-                    pr="4.5rem"
-                    borderRadius="lg"
-                  />
-                  {searchTerm && (
-                    <InputRightElement width="4.5rem">
-                      <IconButton
-                        aria-label="Clear search"
-                        icon={<CloseIcon />}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setSearchTerm('')}
-                        colorScheme="gray"
-                        borderRadius="full"
-                      />
-                    </InputRightElement>
-                  )}
-                </InputGroup>
-              </Box>
-
-              {/* Sort and Filter Buttons */}
-              <HStack spacing={3}>
-                {/* Sort Dropdown */}
-                <Menu placement="bottom-end">
-                  <MenuButton
-                    as={Button}
-                    rightIcon={<ChevronDownIcon />}
-                    variant="outline"
-                    minW={{ base: '100%', md: '200px' }}
-                    textAlign="left"
-                    size="lg"
-                    id="sort-button"
-                    _hover={{
-                      bg: useColorModeValue('gray.100', 'gray.700'),
-                    }}
-                    _active={{
-                      bg: useColorModeValue('gray.200', 'gray.600'),
-                    }}
-                  >
-                    <Flex align="center">
-                      <Box as={FiFilter} mr={2} />
-                      <Text isTruncated>{getSortLabel()}</Text>
-                    </Flex>
-                  </MenuButton>
-                  <MenuList minW="220px" zIndex="popover">
-                    <MenuGroup title="Sort By" fontSize="sm" px={3} py={1} color="gray.500">
-                      <MenuItem
-                        onClick={() => {
-                          setSortBy('price');
-                          setSortOrder('asc');
-                        }}
-                        bg={sortBy === 'price' && sortOrder === 'asc' ? 'brand.50' : 'transparent'}
-                        _dark={{
-                          bg: sortBy === 'price' && sortOrder === 'asc' ? 'brand.800' : 'transparent',
-                        }}
-                      >
-                        <Text>Price: Low to High</Text>
-                        {sortBy === 'price' && sortOrder === 'asc' && (
-                          <CheckIcon ml="auto" color="brand.500" />
-                        )}
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() => {
-                          setSortBy('price');
-                          setSortOrder('desc');
-                        }}
-                        bg={sortBy === 'price' && sortOrder === 'desc' ? 'brand.50' : 'transparent'}
-                        _dark={{
-                          bg: sortBy === 'price' && sortOrder === 'desc' ? 'brand.800' : 'transparent',
-                        }}
-                      >
-                        <Text>Price: High to Low</Text>
-                        {sortBy === 'price' && sortOrder === 'desc' && (
-                          <CheckIcon ml="auto" color="brand.500" />
-                        )}
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() => {
-                          setSortBy('name');
-                          setSortOrder('asc');
-                        }}
-                        bg={sortBy === 'name' && sortOrder === 'asc' ? 'brand.50' : 'transparent'}
-                        _dark={{
-                          bg: sortBy === 'name' && sortOrder === 'asc' ? 'brand.800' : 'transparent',
-                        }}
-                      >
-                        <Text>Name: A to Z</Text>
-                        {sortBy === 'name' && sortOrder === 'asc' && (
-                          <CheckIcon ml="auto" color="brand.500" />
-                        )}
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() => {
-                          setSortBy('name');
-                          setSortOrder('desc');
-                        }}
-                        bg={sortBy === 'name' && sortOrder === 'desc' ? 'brand.50' : 'transparent'}
-                        _dark={{
-                          bg: sortBy === 'name' && sortOrder === 'desc' ? 'brand.800' : 'transparent',
-                        }}
-                      >
-                        <Text>Name: Z to A</Text>
-                        {sortBy === 'name' && sortOrder === 'desc' && (
-                          <CheckIcon ml="auto" color="brand.500" />
-                        )}
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() => {
-                          setSortBy('rating');
-                          setSortOrder('desc');
-                        }}
-                        bg={sortBy === 'rating' ? 'brand.50' : 'transparent'}
-                        _dark={{
-                          bg: sortBy === 'rating' ? 'brand.800' : 'transparent',
-                        }}
-                      >
-                        <Text>Highest Rated</Text>
-                        {sortBy === 'rating' && <CheckIcon ml="auto" color="brand.500" />}
-                      </MenuItem>
-                    </MenuGroup>
-                  </MenuList>
-                </Menu>
-
-                {/* Filter Button */}
-                <Tooltip label="Filter products" placement="top" hasArrow>
+                  fontSize="md"
+                />
+                <InputRightElement width="5rem">
                   <Button
-                    ref={filterButtonRef}
-                    leftIcon={<FiFilter />}
-                    variant="outline"
-                    size="lg"
-                    onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-                    aria-label="Filter products"
-                    bg={isFilterPanelOpen ? 'brand.50' : 'transparent'}
-                    _dark={{
-                      bg: isFilterPanelOpen ? 'brand.800' : 'transparent',
-                    }}
-                    _hover={{
-                      bg: useColorModeValue('gray.100', 'gray.700'),
-                    }}
-                    _active={{
-                      bg: useColorModeValue('gray.200', 'gray.600'),
-                    }}
+                    h="2rem"
+                    size="sm"
+                    colorScheme="brand"
+                    onClick={() => handleSearch()}
+                    isLoading={isLoading}
+                    loadingText="..."
                   >
-                    <Text display={{ base: 'none', md: 'block' }}>Filters</Text>
-                    {Object.keys(appliedFilters).length > 0 && (
-                      <Badge
-                        ml={2}
-                        colorScheme="brand"
-                        borderRadius="full"
-                        variant="solid"
-                        fontSize="xs"
-                        px={2}
-                        py={0.5}
-                      >
-                        {Object.keys(appliedFilters).length}
-                      </Badge>
-                    )}
+                    Search
                   </Button>
-                </Tooltip>
-              </HStack>
-            </Flex>
-
-            {/* Filter Panel */}
-            <Collapse in={isFilterPanelOpen} animateOpacity>
-              <Box
-                ref={filterPanelRef}
-                mt={4}
-                pt={4}
-                borderTopWidth="1px"
-                borderColor={useColorModeValue('gray.200', 'gray.700')}
-              >
-                <VStack align="stretch" spacing={6}>
-                  <Flex justify="space-between" align="center">
-                    <Heading size="md">Filters</Heading>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      colorScheme="gray"
-                      onClick={clearAllFilters}
-                      isDisabled={Object.keys(appliedFilters).length === 0}
-                      leftIcon={<FiX />}
-                    >
-                      Clear All
-                    </Button>
-                  </Flex>
-
-                  <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
-                    {/* In Stock Toggle */}
-                    <Box>
-                      <FormControl display="flex" alignItems="center">
-                        <Checkbox
-                          id="in-stock"
-                          isChecked={filters.inStock}
-                          onChange={(e) => handleFilterChange('inStock', e.target.checked)}
-                          size="lg"
+                </InputRightElement>
+              </InputGroup>
+              
+              {/* Search History */}
+              {searchHistory.length > 0 && !searchQuery && (
+                <Box w="100%">
+                  <Text fontSize="sm" color="gray.600" mb={2}>Recent searches:</Text>
+                  <Wrap>
+                    {searchHistory.map((term, index) => (
+                      <WrapItem key={index}>
+                        <Tag
+                          size="sm"
+                          variant="subtle"
                           colorScheme="brand"
+                          cursor="pointer"
+                          onClick={() => {
+                            setSearchQuery(term);
+                            handleSearch(term);
+                          }}
+                          _hover={{ bg: 'brand.100' }}
                         >
-                          <Text fontWeight="medium">In Stock Only</Text>
-                        </Checkbox>
-                      </FormControl>
-                    </Box>
-
-                    {/* Category Filter */}
-                    <Box>
-                      <FormControl>
-                        <FormLabel fontWeight="medium" htmlFor="category">
-                          Category
-                        </FormLabel>
-                        <Select
-                          id="category"
-                          placeholder="All Categories"
-                          value={filters.category}
-                          onChange={(e) => handleFilterChange('category', e.target.value)}
-                          size="lg"
-                        >
-                          {['Electronics', 'Fashion', 'Home Goods'].map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-
-                    {/* Price Range */}
-                    <Box>
-                      <FormLabel fontWeight="medium" display="block" mb={2}>
-                        Price Range
-                      </FormLabel>
-                      <HStack spacing={3}>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Min"
-                            value={filters.minPrice}
-                            onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-                            size="lg"
-                          />
-                        </FormControl>
-                        <Box color="gray.500" flexShrink={0}>
-                          <FiMinus />
-                        </Box>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Max"
-                            value={filters.maxPrice}
-                            onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-                            size="lg"
-                          />
-                        </FormControl>
-                      </HStack>
-                    </Box>
-                  </SimpleGrid>
-
-                  {/* Applied Filters */}
-                  {Object.keys(appliedFilters).length > 0 && (
-                    <Box>
-                      <Text fontSize="sm" color="gray.500" mb={2}>
-                        Active Filters:
-                      </Text>
-                      <Flex wrap="wrap" gap={2}>
-                        {filters.inStock && (
-                          <Badge
-                            key="in-stock"
-                            colorScheme="green"
-                            px={3}
-                            py={1}
-                            borderRadius="full"
-                            display="flex"
-                            alignItems="center"
-                          >
-                            In Stock
-                            <IconButton
-                              icon={<FiX size={14} />}
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="green"
-                              ml={1}
-                              onClick={() => handleFilterChange('inStock', false)}
-                              aria-label="Remove in stock filter"
-                            />
-                          </Badge>
-                        )}
-                        {filters.category && (
-                          <Badge
-                            key="category"
-                            colorScheme="blue"
-                            px={3}
-                            py={1}
-                            borderRadius="full"
-                            display="flex"
-                            alignItems="center"
-                          >
-                            {filters.category}
-                            <IconButton
-                              icon={<FiX size={14} />}
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="blue"
-                              ml={1}
-                              onClick={() => handleFilterChange('category', '')}
-                              aria-label="Remove category filter"
-                            />
-                          </Badge>
-                        )}
-                        {(filters.minPrice || filters.maxPrice) && (
-                          <Badge
-                            key="price-range"
-                            colorScheme="purple"
-                            px={3}
-                            py={1}
-                            borderRadius="full"
-                            display="flex"
-                            alignItems="center"
-                          >
-                            ${filters.minPrice || '0'} - ${filters.maxPrice || '∞'}
-                            <IconButton
-                              icon={<FiX size={14} />}
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="purple"
-                              ml={1}
-                              onClick={() => {
-                                handleFilterChange('minPrice', '');
-                                handleFilterChange('maxPrice', '');
-                              }}
-                              aria-label="Remove price filter"
-                            />
-                          </Badge>
-                        )}
-                      </Flex>
-                    </Box>
-                  )}
-                </VStack>
-              </Box>
-            </Collapse>
-
-            <Box>
-              {isLoading ? (
-                <ProductsGridSkeleton count={12} />
-              ) : error ? (
-                <Alert status="error" borderRadius="md">
-                  <AlertIcon />
-                  <Box>
-                    <AlertTitle>Error loading products</AlertTitle>
-                    <AlertDescription>{error.message || 'Failed to load products. Please try again later.'}</AlertDescription>
-                  </Box>
-                </Alert>
-              ) : productsData?.data?.length > 0 ? (
-                <>
-                  <Grid
-                    templateColumns={{
-                      base: 'repeat(1, 1fr)',
-                      sm: 'repeat(2, 1fr)',
-                      md: 'repeat(3, 1fr)',
-                      lg: 'repeat(4, 1fr)'
-                    }}
-                    gap={6}
-                  >
-                    {productsData.data.map((product, index) => (
-                      <motion.div
-                        key={product.id}
-                        variants={itemVariants}
-                        initial="hidden"
-                        animate="visible"
-                        custom={index % 10}
-                        layout
-                      >
-                        <ProductCard product={product} />
-                      </motion.div>
+                          <TagLabel>{term}</TagLabel>
+                        </Tag>
+                      </WrapItem>
                     ))}
-                  </Grid>
-                  
-                  {/* Pagination */}
-                  {productsData?.data?.length > 0 && (
-                    <Flex 
-                      justify="space-between" 
-                      align="center" 
-                      mt={8}
-                      flexDirection={{ base: 'column', sm: 'row' }}
-                      gap={4}
-                    >
-                      <Text color={mutedText} fontSize="sm">
-                        Showing {(page - 1) * 12 + 1} to {Math.min(page * 12, productsData?.total || 0)} of {productsData?.total || 0} products
-                      </Text>
-                      
-                      <HStack spacing={2}>
-                        <Button
-                          onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                          isDisabled={page === 1 || isLoading}
-                          leftIcon={<ChevronLeftIcon />}
-                          variant="outline"
-                          size="sm"
-                          _disabled={{
-                            opacity: 0.5,
-                            cursor: 'not-allowed',
-                          }}
-                        >
-                          Previous
-                        </Button>
-                        
-                        <HStack spacing={1} display={{ base: 'none', md: 'flex' }}>
-                          {Array.from({ length: Math.min(5, productsData?.total_pages || 1) }, (_, i) => {
-                            let pageNum;
-                            if (productsData?.total_pages <= 5) {
-                              pageNum = i + 1;
-                            } else if (page <= 3) {
-                              pageNum = i + 1;
-                            } else if (page >= (productsData?.total_pages || 0) - 2) {
-                              pageNum = (productsData?.total_pages || 0) - 4 + i;
-                            } else {
-                              pageNum = page - 2 + i;
-                            }
-                            
-                            return (
-                              <Button
-                                key={pageNum}
-                                onClick={() => setPage(pageNum)}
-                                colorScheme={page === pageNum ? 'brand' : 'gray'}
-                                variant={page === pageNum ? 'solid' : 'outline'}
-                                size="sm"
-                                minW="40px"
-                                px={3}
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          })}
-                          
-                          {(productsData?.total_pages || 0) > 5 && page < (productsData?.total_pages || 0) - 2 && (
-                            <Text px={2}>...</Text>
-                          )}
-                          
-                          {(productsData?.total_pages || 0) > 5 && page < (productsData?.total_pages || 0) - 2 && (
-                            <Button
-                              onClick={() => setPage(productsData?.total_pages || 1)}
-                              variant="outline"
-                              size="sm"
-                              minW="40px"
-                              px={3}
-                            >
-                              {productsData?.total_pages}
-                            </Button>
-                          )}
-                        </HStack>
-                        
-                        <Button
-                          onClick={() => setPage((p) => p + 1)}
-                          isDisabled={!productsData?.has_next_page || isLoading}
-                          rightIcon={<ChevronRightIcon />}
-                          variant="outline"
-                          size="sm"
-                          _disabled={{
-                            opacity: 0.5,
-                            cursor: 'not-allowed',
-                          }}
-                        >
-                          Next
-                        </Button>
-                      </HStack>
-                    </Flex>
-                  )}
-                </>
-              ) : (
-                <Box textAlign="center" py={20}>
-                  <SearchIcon boxSize={8} color={mutedText} mb={4} />
-                  <Heading size="md" mb={2} color={textColor}>
-                    No products found
-                  </Heading>
-                  <Text color={mutedText} mb={6} maxW="md" mx="auto">
-                    {searchTerm 
-                      ? 'No products match your search. Try different keywords.'
-                      : 'You haven\'t added any products yet. Start by adding your first product!'}
-                  </Text>
-                  <Button 
-                    as={RouterLink}
-                    to="/products/new"
-                    colorScheme="brand" 
-                    leftIcon={<AddIcon />}
-                    size="lg"
-                  >
-                    Add Your First Product
-                  </Button>
+                  </Wrap>
                 </Box>
               )}
-            </Box>
+            </VStack>
           </Box>
+
+          {/* Enhanced Controls */}
+          <Flex
+            w="100%"
+            justify="space-between"
+            align="center"
+            flexWrap="wrap"
+            gap={4}
+          >
+            <HStack spacing={4} flexWrap="wrap">
+              <Button
+                leftIcon={<FilterIcon />}
+                variant="outline"
+                onClick={() => setIsFiltersOpen(true)}
+                display={{ base: 'flex', lg: 'none' }}
+                position="relative"
+              >
+                Filters
+                {activeFiltersCount > 0 && (
+                  <Badge
+                    position="absolute"
+                    top="-8px"
+                    right="-8px"
+                    colorScheme="red"
+                    borderRadius="full"
+                    fontSize="xs"
+                  >
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+              
+              <HStack spacing={2}>
+                <Text fontSize="sm" color="gray.600" fontWeight="medium">
+                  View:
+                </Text>
+                <IconButton
+                  icon={<GridIcon />}
+                  size="sm"
+                  variant={viewMode === 'grid' ? 'solid' : 'outline'}
+                  colorScheme="brand"
+                  onClick={() => setViewMode('grid')}
+                  _hover={{ transform: 'scale(1.05)' }}
+                  transition="all 0.2s"
+                />
+                <IconButton
+                  icon={<ListIcon />}
+                  size="sm"
+                  variant={viewMode === 'list' ? 'solid' : 'outline'}
+                  colorScheme="brand"
+                  onClick={() => setViewMode('list')}
+                  _hover={{ transform: 'scale(1.05)' }}
+                  transition="all 0.2s"
+                />
+              </HStack>
+              
+              {savedItems.length > 0 && (
+                <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">
+                  {savedItems.length} saved
+                </Badge>
+              )}
+            </HStack>
+
+            <HStack spacing={4} flexWrap="wrap">
+              <Text fontSize="sm" color="gray.600" fontWeight="medium">
+                {sortedProducts.length} result{sortedProducts.length !== 1 ? 's' : ''}
+                {activeFiltersCount > 0 && ` (${activeFiltersCount} filter${activeFiltersCount !== 1 ? 's' : ''} applied)`}
+              </Text>
+              
+              <Select
+                size="sm"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                w="220px"
+                bg={cardBg}
+                borderColor="gray.300"
+                _hover={{ borderColor: 'brand.400' }}
+              >
+                <option value="best_match">Best Match</option>
+                <option value="price_low">Price: Low to High</option>
+                <option value="price_high">Price: High to Low</option>
+                <option value="rating">Highest Rated</option>
+                <option value="discount">Best Deals</option>
+                <option value="newest">Newest First</option>
+              </Select>
+            </HStack>
+          </Flex>
         </VStack>
+
+        {/* Error Display */}
+        {error && (
+          <Alert status="error" mb={6} borderRadius="lg">
+            <AlertIcon />
+            <AlertTitle>Error!</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+            <Button
+              ml="auto"
+              size="sm"
+              leftIcon={<RepeatIcon />}
+              onClick={() => handleSearch()}
+            >
+              Retry
+            </Button>
+          </Alert>
+        )}
+
+        {/* Main Content */}
+        <Grid
+          templateColumns={{ base: '1fr', lg: '320px 1fr' }}
+          gap={8}
+          alignItems="start"
+        >
+          {/* Filters Sidebar - Desktop */}
+          <GridItem display={{ base: 'none', lg: 'block' }}>
+            <FiltersSidebar
+              filters={filters}
+              onFiltersChange={setFilters}
+              isOpen={true}
+              onClose={() => {}}
+            />
+          </GridItem>
+
+          {/* Products Grid */}
+          <GridItem>
+            <AnimatePresence mode="wait">
+              {isLoading ? (
+                <MotionGrid
+                  key="loading"
+                  columns={{ base: 1, sm: 2, md: viewMode === 'grid' ? 3 : 1, xl: viewMode === 'grid' ? 4 : 1 }}
+                  spacing={6}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <ProductSkeleton key={i} viewMode={viewMode} />
+                  ))}
+                </MotionGrid>
+              ) : sortedProducts.length > 0 ? (
+                <MotionGrid
+                  key="products"
+                  columns={{ base: 1, sm: 2, md: viewMode === 'grid' ? 3 : 1, xl: viewMode === 'grid' ? 4 : 1 }}
+                  spacing={6}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3, staggerChildren: 0.1 }}
+                >
+                  {sortedProducts.map((product, index) => (
+                    <motion.div
+                      key={product.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                    >
+                      <ProductCard
+                        product={product}
+                        viewMode={viewMode}
+                        onSave={handleSaveItem}
+                        savedItems={savedItems}
+                      />
+                    </motion.div>
+                  ))}
+                </MotionGrid>
+              ) : (
+                <Center py={20}>
+                  <VStack spacing={4}>
+                    <SearchIcon boxSize={16} color="gray.400" />
+                    <Heading size="lg" color="gray.500">
+                      No products found
+                    </Heading>
+                    <Text color="gray.500" textAlign="center" maxW="md">
+                      Try adjusting your search terms or filters to find what you're looking for.
+                    </Text>
+                    <Button
+                      colorScheme="brand"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setFilters({});
+                        setProducts(mockProducts);
+                      }}
+                    >
+                      Clear Search & Filters
+                    </Button>
+                  </VStack>
+                </Center>
+              )}
+            </AnimatePresence>
+          </GridItem>
+        </Grid>
+
+        {/* Mobile Filters Drawer */}
+        <Drawer
+          isOpen={isFiltersOpen}
+          placement="left"
+          onClose={() => setIsFiltersOpen(false)}
+          size="sm"
+        >
+          <DrawerOverlay />
+          <DrawerContent>
+            <DrawerCloseButton />
+            <DrawerHeader>
+              Filters
+              {activeFiltersCount > 0 && (
+                <Badge colorScheme="brand" ml={2} borderRadius="full">
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </DrawerHeader>
+
+            <DrawerBody>
+              <FiltersSidebar
+                filters={filters}
+                onFiltersChange={setFilters}
+                isOpen={isFiltersOpen}
+                onClose={() => setIsFiltersOpen(false)}
+              />
+            </DrawerBody>
+          </DrawerContent>
+        </Drawer>
       </Container>
     </Box>
   );
-}
+};
+
+export default ProductsPage;
