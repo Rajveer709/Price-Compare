@@ -1,3 +1,8 @@
+"""
+Base schemas for the application.
+This module contains all the base Pydantic models used throughout the application.
+"""
+
 from pydantic import BaseModel, HttpUrl, EmailStr
 from typing import List, Optional
 from datetime import datetime
@@ -59,7 +64,7 @@ class OfferInDBBase(OfferBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True  # Updated from orm_mode for Pydantic v2
 
@@ -67,28 +72,13 @@ class OfferInDBBase(OfferBase):
 class Offer(OfferInDBBase):
     pass
 
-# Additional schemas for API responses
-class ProductWithOffers(Product):
-    offers: List[Offer] = []
-
-class OfferWithProduct(Offer):
-    product: Product
-
+# User schemas
 class UserBase(BaseModel):
     email: EmailStr
 
 class UserCreate(UserBase):
     password: str
 
-class UserLogin(UserBase):
+class UserLogin(BaseModel):
+    email: EmailStr
     password: str
-
-class User(UserBase):
-    id: int
-    created_at: datetime
-    class Config:
-        from_attributes = True  # Updated from orm_mode for Pydantic v2
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str

@@ -2,7 +2,7 @@ from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from app.core.config import settings
@@ -28,7 +28,15 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# Make token optional for public endpoints
+class OptionalOAuth2PasswordBearer(OAuth2PasswordBearer):
+    async def __call__(self, request: Request) -> Optional[str]:
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            return None
+        return await super().__call__(request)
+
+oauth2_scheme = OptionalOAuth2PasswordBearer(tokenUrl="token")
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     credentials_exception = HTTPException(
@@ -53,3 +61,21 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+def get_current_user_optional(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Optional[User]:
+    """
+    Dependency that returns the current user if authenticated, None otherwise.
+    This allows for optional authentication on certain endpoints.
+    """
+    if not token:
+        return None
+        
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+    except JWTError:
+        return None
+    
+    return db.query(User).filter(User.username == username).first()

@@ -4,7 +4,8 @@ from typing import List, Optional
 from datetime import datetime
 
 from ...database import get_db
-from app import models, schemas
+from app import models
+from app.schemas import schemas
 
 router = APIRouter()
 

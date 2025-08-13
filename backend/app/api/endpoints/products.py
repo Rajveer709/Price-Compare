@@ -1,17 +1,27 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
 from ...database import get_db
-from app import models, schemas
+from app import models
+from app.schemas import schemas
+from app.schemas.ebay import EBayItemSummary, EBayItemDetail
+from ...core.security import get_current_user_optional, get_current_user
+from ...core.rate_limiter import rate_limiter
 
 logger = logging.getLogger(__name__)
+router = APIRouter(dependencies=[])  # No global dependencies
 
-router = APIRouter()
-
-@router.post("/", response_model=schemas.Product, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", 
+    response_model=schemas.Product, 
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_user)]  # Require auth for write operations
+)
 async def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
     try:
         db_product = models.Product(**product.dict())
@@ -28,19 +38,26 @@ async def create_product(product: schemas.ProductCreate, db: Session = Depends(g
 
 @router.get("/", response_model=List[schemas.Product])
 async def read_products(
+    request: Request,
     skip: int = 0, 
     limit: int = 100, 
     category: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user_optional)
 ):
+    # Rate limit: 10 requests per minute for unauthenticated users, 30 for authenticated
+    rate_limit_key = f"products:{current_user.id if current_user else request.client.host}"
+    rate_limit = 30 if current_user else 10
+    await rate_limiter.limit(rate_limit_key, limit=rate_limit, period=60)
     try:
         logger.info("Starting to fetch products...")
         
         # Simple test query
         try:
-            test = db.execute("SELECT 1").scalar()
+            from sqlalchemy import text
+            test = db.execute(text("SELECT 1")).scalar()
             logger.info(f"Database connection test: {test}")
         except Exception as e:
             logger.error(f"Database connection failed: {str(e)}")
@@ -112,7 +129,11 @@ async def read_product(product_id: int, db: Session = Depends(get_db)):
             detail=f"Error retrieving product: {str(e)}"
         )
 
-@router.put("/{product_id}", response_model=schemas.Product)
+@router.put(
+    "/{product_id}", 
+    response_model=schemas.Product,
+    dependencies=[Depends(get_current_user)]  # Require auth for write operations
+)
 async def update_product(
     product_id: int, 
     product_update: schemas.ProductUpdate, 
@@ -140,7 +161,11 @@ async def update_product(
             detail=f"Error updating product: {str(e)}"
         )
 
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{product_id}", 
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_current_user)]  # Require auth for write operations
+)
 async def delete_product(product_id: int, db: Session = Depends(get_db)):
     try:
         db_product = db.query(models.Product).filter(models.Product.id == product_id).first()

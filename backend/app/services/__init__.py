@@ -1,7 +1,7 @@
 # This file makes the services directory a Python package
-from .scraper import ScraperManager, AmazonScraper
+from .ebay_service import EBayService
 
-# Create a default scraper manager instance
-scraper_manager = ScraperManager()
+# Create eBay service instance
+ebay_service = EBayService()
 
-__all__ = ['ScraperManager', 'AmazonScraper', 'scraper_manager']
+__all__ = ['EBayService', 'ebay_service']

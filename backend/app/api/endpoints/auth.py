@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from app.database import get_db
-from app import models, schemas
+from app import models
+from app.schemas import schemas
 from app.core.security import create_access_token, verify_password, get_password_hash
 from app.core.config import settings
 

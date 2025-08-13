@@ -34,7 +34,7 @@ class Product(Base):
     image_url = Column(String, nullable=True)
     category = Column(String, nullable=True)
     price = Column(Float, nullable=True)
-    source = Column(String, nullable=True)  # e.g., 'amazon', 'flipkart'
+    source = Column(String, nullable=True)  # e.g., 'ebay'
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -84,3 +84,37 @@ class SearchResult(Base):
     # Relationships
     search = relationship("SearchHistory", back_populates="results")
     product = relationship("Product", back_populates="search_results")
+
+
+class PriceSnapshot(Base):
+    __tablename__ = 'price_snapshots'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    price = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    product = relationship("Product", back_populates="price_history")
+
+# Add relationship to Product model
+Product.price_history = relationship("PriceSnapshot", order_by=PriceSnapshot.timestamp, back_populates="product")
+
+
+class Watch(Base):
+    __tablename__ = 'watches'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    target_price = Column(Float, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="watches")
+    product = relationship("Product")
+
+# Add relationship to User model
+User.watches = relationship("Watch", back_populates="user")

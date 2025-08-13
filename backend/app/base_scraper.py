@@ -107,7 +107,7 @@ class BaseScraper:
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
             'DNT': '1',  # Do Not Track
-            'Referer': 'https://www.amazon.com/',
+            "Referer": "https://www.ebay.com/",
             'Pragma': 'no-cache',
         }
         

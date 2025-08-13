@@ -35,11 +35,31 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     
-    # Amazon PA-API Settings
-    AMAZON_PAAPI_ACCESS_KEY: str = os.getenv("AMAZON_PAAPI_ACCESS_KEY", "")
-    AMAZON_PAAPI_SECRET_KEY: str = os.getenv("AMAZON_PAAPI_SECRET_KEY", "")
-    AMAZON_PARTNER_TAG: str = os.getenv("AMAZON_PARTNER_TAG", "")
-    AMAZON_PAAPI_REGION: str = os.getenv("AMAZON_PAAPI_REGION", "us-east-1")
+        # eBay API Settings
+    EBAY_CLIENT_ID: str = os.getenv("EBAY_CLIENT_ID", "RajveerS-Scrapper-PRD-581384bec-aba11b55")
+    EBAY_CLIENT_SECRET: str = os.getenv("EBAY_CLIENT_SECRET", "PRD-81384bec9dab-75de-41f8-b405-313f")
+    EBAY_API_BASE_URL: str = "https://api.ebay.com"
+    EBAY_API_TIMEOUT: int = 10  # seconds
+    
+    # Redis Settings
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_TIMEOUT: int = 5  # seconds
+    
+    # eBay API Rate Limiting
+    EBAY_MAX_CALLS_PER_DAY: int = int(os.getenv("EBAY_MAX_CALLS_PER_DAY", "4900"))  # 4,900 to stay under 5,000/day limit
+    EBAY_REQUESTS_PER_SECOND: float = float(os.getenv("EBAY_REQUESTS_PER_SECOND", "0.3"))  # ~3 requests per second
+    
+    # Cache TTLs (in seconds)
+    EBAY_TOKEN_CACHE_TTL: int = 7000  # ~2 hours (eBay tokens expire in 2 hours)
+    EBAY_PRODUCT_CACHE_TTL: int = 86400  # 24 hours
+    EBAY_SEARCH_CACHE_TTL: int = 3600  # 1 hour
+    
+    # Feature Flags
+    ENABLE_EBAY_API: bool = os.getenv("ENABLE_EBAY_API", "true").lower() == "true"
+    ENABLE_SAFE_BROWSING: bool = os.getenv("ENABLE_SAFE_BROWSING", "true").lower() == "true"
+    
+    # Google Safe Browsing
+    GOOGLE_SAFE_BROWSING_API_KEY: str = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "")
     
     @field_validator("BACKEND_CORS_ORIGINS", mode='before')
     @classmethod
@@ -52,7 +72,7 @@ class Settings(BaseSettings):
     
     model_config = ConfigDict(
         case_sensitive=True,
-        env_file=".env"
+        env_file=".env.local"
     )
 
 # Create settings instance

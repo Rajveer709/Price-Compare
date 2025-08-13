@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   ChakraProvider, 
   Box, 
@@ -13,12 +13,10 @@ import {
   useColorModeValue, 
   ColorModeScript, 
   CSSReset, 
-  VStack,
   HStack
 } from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
-import { SunIcon, MoonIcon } from '@chakra-ui/icons';
-import { Routes, Route, Link as RouterLink } from 'react-router-dom';
+import { SearchIcon, SunIcon, MoonIcon } from '@chakra-ui/icons';
+import { Routes, Route, Link as RouterLink, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from 'react-error-boundary';
 import theme from './theme';
@@ -154,6 +152,10 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 
 // Main App component
 function App() {
+  const footerBg = useColorModeValue('white', 'gray.800');
+  const footerTextColor = useColorModeValue('gray.600', 'gray.400');
+  const linkHoverColor = useColorModeValue('brand.500', 'brand.300');
+
   return (
     <ChakraProvider theme={theme}>
       <ColorModeScript initialColorMode={theme.config.initialColorMode} />
@@ -170,41 +172,46 @@ function App() {
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Container>
-                    direction={{ base: 'column', md: 'row' }} 
-                    justify="space-between" 
-                    align="center"
-                    gap={4}
-                  >
-                    <Text 
-                      color={useColorModeValue('gray.600', 'gray.400')}
-                      textAlign={{ base: 'center', md: 'left' }}
-                      fontSize="sm"
-                    >
-                      {new Date().getFullYear()} PriceCompare. All rights reserved.
-                    </Text>
-                    <Flex gap={6} wrap="wrap" justify={{ base: 'center', md: 'flex-end' }}>
-                      {['Terms', 'Privacy', 'Contact'].map((item) => (
-                        <Link 
-                          key={item}
-                          href="#" 
-                          color={useColorModeValue('gray.600', 'gray.400')}
-                          _hover={{ 
-                            color: useColorModeValue('brand.500', 'brand.300'),
-                            textDecoration: 'none',
-                            transform: 'translateY(-1px)'
-                          }}
-                          transition="all 0.2s"
-                          fontSize="sm"
-                        >
-                          {item}
-                        </Link>
-                      ))}
-                    </Flex>
-                  </Flex>
-                </Container>
-              </Box>
             </Box>
-          </AuthProvider>
+            
+            {/* Footer */}
+            <Box as="footer" bg={footerBg} py={6} borderTopWidth="1px">
+              <Container maxW="container.xl">
+                <Flex 
+                  direction={{ base: 'column', md: 'row' }}
+                  justify="space-between"
+                  align="center"
+                  gap={4}
+                >
+                  <Text 
+                    color={footerTextColor}
+                    textAlign={{ base: 'center', md: 'left' }}
+                    fontSize="sm"
+                  >
+                    {new Date().getFullYear()} PriceCompare. All rights reserved.
+                  </Text>
+                  <Flex gap={6} wrap="wrap" justify={{ base: 'center', md: 'flex-end' }}>
+                    {['Terms', 'Privacy', 'Contact'].map((item) => (
+                      <Link 
+                        key={item}
+                        href="#" 
+                        color={footerTextColor}
+                        _hover={{ 
+                          color: linkHoverColor,
+                          textDecoration: 'none',
+                          transform: 'translateY(-1px)'
+                        }}
+                        transition="all 0.2s"
+                        fontSize="sm"
+                      >
+                        {item}
+                      </Link>
+                    ))}
+                  </Flex>
+                </Flex>
+              </Container>
+            </Box>
+          </Box>
         </ErrorBoundary>
       </QueryClientProvider>
     </ChakraProvider>
