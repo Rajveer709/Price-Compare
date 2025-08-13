@@ -16,24 +16,7 @@ from app.schemas.ebay import EBayItemSummary
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-def create_default_offer(query: str, index: int) -> Dict[str, Any]:
-    """Create a default offer with valid values for all required fields"""
-    return {
-        'product_id': f"ebay_{index + 1}",
-        'seller': f"eBay Seller {index + 1}",
-        'price': 100.0 * (index + 1),
-        'original_price': 120.0 * (index + 1),
-        'discount': 10 + index,
-        'url': f"https://www.ebay.com/itm/{query.lower().replace(' ', '-')}-{index + 1}",
-        'website': 'ebay',
-        'id': index + 1,
-        'title': f"{query.title()} {index + 1} (eBay)",
-        'image_url': f"https://via.placeholder.com/150?text=eBay+{query}+{index + 1}",
-        'rating': 4.0 + (index * 0.1),
-        'created_at': datetime.utcnow(),
-        'updated_at': datetime.utcnow(),
-        'product': None
-    }
+# Removed create_default_offer function as it's only used for mock data
 
 @router.get("/search", response_model=List[schemas.Offer])
 async def search_products(
@@ -56,15 +39,18 @@ async def search_products(
         try:
             logger.info("[SEARCH] Calling ebay_service.search_products...")
             search_results = await ebay_service.search_products(query)
-            logger.info(f"[SEARCH] Found {len(search_results)} results from eBay")
+            logger.info(f"[SEARCH] Found {len(search_results) if search_results else 0} results from eBay")
             if not search_results:
                 logger.warning("[SEARCH] No results returned from eBay service")
-                search_results = [create_default_offer(query, i) for i in range(3)]
+                return []
         except Exception as e:
             logger.error(f"[SEARCH] Error during eBay search: {str(e)}")
             logger.error(f"[SEARCH] {traceback.format_exc()}")
-            # Fall back to mock data if search fails
-            search_results = [create_default_offer(query, i) for i in range(3)]
+            # In production, we return a 500 error for service failures
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error. Please try again later."
+            )
         
         # Process and validate results
         offers = []
@@ -77,40 +63,53 @@ async def search_products(
                 # Log the structure of the product data for debugging
                 logger.debug(f"[SEARCH] Raw product data: {prod}")
                 
-                # Ensure all required fields are present and valid
+                # Extract data from the product
+                item_id = str(prod.get('itemId', f'unknown_{i}'))
+                # Generate a consistent numeric ID from the item_id string
+                numeric_id = abs(hash(item_id)) % (10**8)
+                
+                # Get seller info
+                seller_info = prod.get('sellerInfo', {})
+                seller = str(seller_info.get('username', 'eBay Seller'))
+                
+                # Parse price values
                 price_value = 0.0
-                try:
-                    price_value = float(prod.get('price', {}).get('value', 0.0))
-                except (AttributeError, ValueError):
+                if isinstance(prod.get('price'), dict):
+                    price_value = float(prod['price'].get('value', 0.0))
+                else:
                     try:
                         price_value = float(prod.get('price', 0.0))
                     except (TypeError, ValueError):
                         logger.warning(f"[SEARCH] Could not parse price: {prod.get('price')}")
                 
-                original_price_value = 0.0
-                try:
-                    original_price_value = float(prod.get('originalPrice', {}).get('value', 0.0))
-                except (AttributeError, ValueError):
-                    try:
-                        original_price_value = float(prod.get('originalPrice', 0.0))
-                    except (TypeError, ValueError):
-                        logger.warning(f"[SEARCH] Could not parse original price: {prod.get('originalPrice')}")
+                # Parse original price if available
+                original_price_value = None
+                if 'originalPrice' in prod:
+                    if isinstance(prod['originalPrice'], dict):
+                        original_price_value = float(prod['originalPrice'].get('value', 0.0))
+                    else:
+                        try:
+                            original_price_value = float(prod['originalPrice'])
+                        except (TypeError, ValueError):
+                            logger.warning(f"[SEARCH] Could not parse original price: {prod.get('originalPrice')}")
                 
+                # Calculate discount if we have original price
+                discount_value = None
+                if original_price_value and original_price_value > 0 and price_value > 0:
+                    discount_value = ((original_price_value - price_value) / original_price_value) * 100
+                
+                # Build the offer dictionary with only the fields that match the Offer model
                 offer = {
-                    'product_id': str(prod.get('itemId', f'unknown_{i}')),
-                    'seller': str(prod.get('sellerInfo', {}).get('username', 'eBay Seller')),
+                    'id': numeric_id,  # Must be an int for the primary key
+                    'product_id': numeric_id,  # In a real app, this would reference a product in the database
+                    'seller': seller,
                     'price': price_value,
-                    'original_price': original_price_value,
-                    'discount': float(prod.get('discount', 0.0)),
+                    'original_price': original_price_value if original_price_value and original_price_value > price_value else None,
+                    'discount': float(discount_value) if discount_value else None,
                     'url': str(prod.get('itemWebUrl', f"https://www.ebay.com/itm/{query}")),
                     'website': 'ebay',
-                    'id': str(prod.get('itemId', f'unknown_{i}')),
-                    'title': str(prod.get('title', f"{query} on eBay")),
-                    'image_url': str(prod.get('image', {}).get('imageUrl', '')) if isinstance(prod.get('image'), dict) else str(prod.get('image', '')),
-                    'rating': float(prod.get('sellerInfo', {}).get('feedbackScore', 0.0)) if prod.get('sellerInfo') else 0.0,
                     'created_at': datetime.utcnow(),
-                    'updated_at': datetime.utcnow(),
-                    'product': None
+                    'updated_at': datetime.utcnow()
                 }
                 
                 logger.debug(f"[SEARCH] Processed offer: {offer}")
@@ -118,8 +117,8 @@ async def search_products(
                 # Apply filters
                 if (min_price is not None and offer['price'] < min_price) or \
                    (max_price is not None and offer['price'] > max_price) or \
-                   (min_rating is not None and offer['rating'] < min_rating) or \
-                   (min_discount is not None and offer['discount'] < min_discount):
+                   (min_rating is not None and 'rating' in offer and offer.get('rating', 0) < min_rating) or \
+                   (min_discount is not None and 'discount' in offer and offer.get('discount', 0) < min_discount):
                     logger.debug(f"[SEARCH] Offer filtered out: {offer}")
                     continue
                     
@@ -140,7 +139,15 @@ async def search_products(
             logger.warning("[SEARCH] No valid offers found, returning mock data")
             offers = [create_default_offer(query, i) for i in range(3)]
         
-        return offers
+        # Convert dictionaries to Offer models to ensure validation
+        try:
+            validated_offers = [schemas.Offer(**offer) for offer in offers]
+            return validated_offers
+        except Exception as e:
+            logger.error(f"[SEARCH] Error validating offers: {e}")
+            logger.error(f"[SEARCH] {traceback.format_exc()}")
+            # Return an empty list if validation fails
+            return []
         
     except Exception as e:
         error_msg = f"[SEARCH] Unexpected error in search_products: {str(e)}\n{traceback.format_exc()}"

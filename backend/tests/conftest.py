@@ -4,7 +4,8 @@ Test configuration and fixtures for the application.
 import os
 import pytest
 import asyncio
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator, Generator, Any
+from unittest.mock import MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
@@ -12,6 +13,13 @@ from app.main import app
 from app.database import Base, get_db
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+
+# Set test environment variables before any imports
+os.environ["TESTING"] = "true"
+os.environ["REDIS_DISABLED"] = "true"  # Disable Redis for tests
+os.environ["EBAY_APP_ID"] = "test_app_id"
+os.environ["EBAY_CERT_ID"] = "test_cert_id"
+os.environ["EBAY_DEV_ID"] = "test_dev_id"
 
 # Use a separate test database
 TEST_DATABASE_URL = os.getenv(
@@ -102,19 +110,15 @@ async def clear_cache() -> AsyncGenerator[None, None]:
     """Clear Redis cache before and after each test."""
     from app.core.redis_client import get_redis
     redis = await get_redis()
-    if redis:
-        await redis.flushdb()
-    yield
-    if redis:
-        await redis.flushdb()
 
 # Add custom markers
-def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
+def pytest_configure(config):
+    """Configure pytest with custom markers."""
     config.addinivalue_line(
         "markers",
-        "slow: mark test as slow to run"
+        "integration: mark test as an integration test"
     )
     config.addinivalue_line(
         "markers",
-        "integration: mark test as integration test"
+        "slow: mark test as slow-running"
     )

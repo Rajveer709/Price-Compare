@@ -17,10 +17,16 @@ def init_redis() -> redis.Redis:
     """Initialize the Redis client with configuration from environment variables
     
     Returns:
-        redis.Redis: Initialized Redis client instance or None if in development mode
+        redis.Redis: Initialized Redis client instance or None if in development mode or disabled
     """
     global _redis_client
     if _redis_client is not None:
+        return _redis_client
+    
+    # Check if Redis is disabled via environment variable
+    if os.getenv("REDIS_DISABLED", "false").lower() == "true":
+        logger.warning("Redis is disabled via REDIS_DISABLED environment variable")
+        _redis_client = None
         return _redis_client
         
     redis_url = os.getenv("REDIS_URL")
