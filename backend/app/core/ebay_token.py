@@ -134,19 +134,33 @@ class EBayTokenManager:
         """
         Refresh the eBay OAuth token
         """
+        logger.info("Starting eBay token refresh...")
+        
         # Check if we've hit our daily mint limit
-        if self.redis_available and await self._check_mint_limit():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Daily token mint limit reached. Please try again later."
-            )
+        if self.redis_available:
+            try:
+                if await self._check_mint_limit():
+                    error_msg = "Daily token mint limit reached. Please try again later."
+                    logger.error(error_msg)
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail=error_msg
+                    )
+            except Exception as e:
+                logger.warning(f"Error checking mint limit: {str(e)}")
+                # Continue with token refresh even if mint limit check fails
             
         # Only allow one token refresh at a time if Redis is available
-        if self.redis_available and not await self._acquire_lock():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Token refresh in progress. Please try again shortly."
-            )
+        if self.redis_available:
+            if not await self._acquire_lock():
+                error_msg = "Token refresh in progress. Please try again shortly."
+                logger.warning(error_msg)
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=error_msg
+                )
+        
+        logger.info("Acquired token refresh lock")
             
         try:
             # Get client credentials from environment
@@ -161,12 +175,13 @@ class EBayTokenManager:
                 )
             
             # Prepare the request
-            url = "https://api.ebay.com/identity/v1/oauth2/token"
-            auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+            logger.info("Preparing eBay OAuth request...")
+            auth_string = f"{client_id}:{client_secret}"
+            encoded_auth = base64.b64encode(auth_string.encode('utf-8')).decode('utf-8')
             
             headers = {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": f"Basic {auth_header}"
+                "Authorization": f"Basic {encoded_auth}"
             }
             
             data = {
@@ -174,10 +189,19 @@ class EBayTokenManager:
                 "scope": "https://api.ebay.com/oauth/api_scope"
             }
             
-            # Make the request
-            response = requests.post(url, headers=headers, data=data)
+            logger.debug(f"eBay OAuth request headers: {headers}")
+            logger.debug(f"eBay OAuth request data: {data}")
+            
+            # Log the OAuth URL without credentials for security
+            oauth_url = "https://api.ebay.com/identity/v1/oauth2/token"
+            logger.info(f"Sending OAuth request to: {oauth_url}")
+            
+            # Make the actual request to eBay OAuth endpoint
+            import requests
+            response = requests.post(oauth_url, headers=headers, data=data)
             response.raise_for_status()
             
+            # Parse the response
             token_data = response.json()
             access_token = token_data.get("access_token")
             expires_in = token_data.get("expires_in", 7200)  # Default 2 hours

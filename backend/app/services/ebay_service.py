@@ -256,8 +256,34 @@ class EBayService:
         limit: int = 20,
         offset: int = 0,
         filters: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Search for products on eBay"""
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for products on eBay.
+        
+        Args:
+            query: Search query string
+            limit: Maximum number of results to return
+            offset: Pagination offset
+            filters: Additional search filters
+            
+        Returns:
+            List of product items
+            
+        Raises:
+            HTTPException: If the search fails
+        """
+        logger.info("[EBAY] Starting product search for query: %s", query)
+        logger.debug("[EBAY] Search params - limit: %d, offset: %d", limit, offset)
+        
+        try:
+            # Get access token first
+            logger.debug("[EBAY] Getting access token...")
+            token = await get_token_manager().get_access_token()
+            logger.debug("[EBAY] Successfully retrieved access token")
+        except Exception as e:
+            logger.error(f"Failed to get access token: {str(e)}")
+            raise
+        
         # Only use Redis if it's available
         if self.redis is not None:
             try:
@@ -269,17 +295,42 @@ class EBayService:
             except Exception as e:
                 logger.warning(f"Failed to read from Redis cache: {str(e)}")
         
+        endpoint = "/item_summary/search"
         params = {
             "q": query,
-            "limit": min(limit, 200),  # Max 200 items per request
-            "offset": offset
+            "limit": min(limit, 200),  # Max 200 items per page
+            "offset": offset,
+            "filter": "buyingOptions:{AUCTION|FIXED_PRICE}",
+            "sort": "price"
         }
         
-        if filters:
-            # Add any additional filters (price range, condition, etc.)
-            params.update(filters)
+        # Log the request details
+        logger.debug("[EBAY] Prepared search parameters: %s", json.dumps(params, indent=2))
+        logger.info("[EBAY] Sending search request to eBay API...")
         
-        result = await self._make_request("GET", "/item_summary/search", params=params)
+        # Add any additional filters (price range, condition, etc.)
+        params.update(filters)
+        
+        result = await self._make_request("GET", endpoint, params=params)
+        
+        # Log the response summary
+        logger.info(
+            "[EBAY] Received response from eBay API. Status: %s, Items found: %d",
+            result.get("@warnings" and "warnings" or "success", "unknown"),
+            len(result.get("itemSummaries", []))
+        )
+        
+        items = result.get("itemSummaries", [])
+        
+        # Log first item details if available
+        if items:
+            first_item = items[0]
+            logger.debug(
+                "[EBAY] First item - Title: %s, Price: %s, Condition: %s",
+                first_item.get("title", "No title"),
+                first_item.get("price", {}).get("value", "No price"),
+                first_item.get("condition", "No condition")
+            )
         
         # Cache for 1 hour if Redis is available
         if self.redis is not None:
@@ -319,14 +370,25 @@ def get_ebay_service() -> EBayService:
     global ebay_service
     if ebay_service is None:
         try:
-            # Initialize the service with Redis client
-            redis_client = get_redis_client()
+            # Initialize the service with Redis client and token manager
+            from ..core.ebay_token import get_token_manager
+            
+            # Get token manager instance
+            token_manager = get_token_manager()
+            
+            # Create new eBay service instance
             ebay_service = EBayService()
+            
+            # Set token manager if needed (if EBayService has a set_token_manager method)
+            if hasattr(ebay_service, 'set_token_manager'):
+                ebay_service.set_token_manager(token_manager)
+                
             logger.info("EBayService initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize EBayService: {str(e)}")
+            error_msg = f"Failed to initialize EBayService: {str(e)}"
+            logger.error(error_msg, exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Search service initialization failed"
+                detail=f"Search service initialization failed: {str(e)}"
             )
     return ebay_service

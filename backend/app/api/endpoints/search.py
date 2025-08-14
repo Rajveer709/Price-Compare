@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 import logging
 import traceback
+import json
 
 from app.database import get_db
 from app import models
 from app.schemas import schemas
-from app.services.ebay_service import ebay_service
+from app.services.ebay_service import get_ebay_service, EBayService
 from app.core.config import settings
 from app.schemas.ebay import EBayItemSummary
 
@@ -25,7 +26,8 @@ async def search_products(
     max_price: Optional[float] = None,
     min_rating: Optional[float] = None,
     min_discount: Optional[float] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    ebay_service: EBayService = Depends(get_ebay_service)
 ):
     """
     Search for products on eBay and return offers (cheapest first).
@@ -37,19 +39,82 @@ async def search_products(
     try:
         # Get search results from eBay service
         try:
+            logger.info("[SEARCH] Starting search with query: %s", query)
+            logger.debug("[SEARCH] eBay service instance: %s", type(ebay_service).__name__)
+            
+            # Log the type and methods of ebay_service for debugging
+            logger.debug("[SEARCH] eBay service methods: %s", dir(ebay_service))
+            
+            # Log eBay service initialization status
+            logger.info("[SEARCH] eBay service initialized: %s", ebay_service is not None)
+            
+            # Try to get search results
+            search_start = datetime.now()
             logger.info("[SEARCH] Calling ebay_service.search_products...")
-            search_results = await ebay_service.search_products(query)
-            logger.info(f"[SEARCH] Found {len(search_results) if search_results else 0} results from eBay")
+            
+            try:
+                # Attempt to get search results
+                search_results = await ebay_service.search_products(query)
+                logger.info("[SEARCH] Successfully retrieved %d results", len(search_results) if search_results else 0)
+            except Exception as search_error:
+                logger.error("[SEARCH] Error in ebay_service.search_products: %s", str(search_error), exc_info=True)
+                raise
+            search_duration = (datetime.now() - search_start).total_seconds()
+            
+            logger.info(
+                "[SEARCH] Search completed in %.2f seconds. Found %d results",
+                search_duration,
+                len(search_results) if search_results else 0
+            )
+            
             if not search_results:
                 logger.warning("[SEARCH] No results returned from eBay service")
                 return []
+                
+            # Log first result for debugging (without sensitive data)
+            if search_results and len(search_results) > 0:
+                first_result = search_results[0]
+                logger.debug(
+                    "[SEARCH] First result - Title: %s, Price: %s",
+                    first_result.get('title', 'No title'),
+                    first_result.get('price', 'No price')
+                )
+                
+        except HTTPException as http_exc:
+            # Re-raise HTTP exceptions as they are
+            logger.error(
+                "[SEARCH] HTTP error during search: %s",
+                str(http_exc),
+                exc_info=True
+            )
+            raise
+            
         except Exception as e:
-            logger.error(f"[SEARCH] Error during eBay search: {str(e)}")
-            logger.error(f"[SEARCH] {traceback.format_exc()}")
-            # In production, we return a 500 error for service failures
+            # Log detailed error information
+            error_type = type(e).__name__
+            error_trace = traceback.format_exc()
+            
+            logger.error(
+                "[SEARCH] Error during eBay search. Type: %s, Message: %s",
+                error_type,
+                str(e)
+            )
+            logger.debug("[SEARCH] Full traceback:\n%s", error_trace)
+            
+            # Return more detailed error information in development
+            error_detail = {
+                "error": "search_failed",
+                "message": str(e),
+                "type": error_type,
+                "query": query
+            }
+            
+            if settings.DEBUG:
+                error_detail["traceback"] = error_trace
+            
             raise HTTPException(
-                status_code=500,
-                detail="Internal server error. Please try again later."
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=error_detail
             )
         
         # Process and validate results
@@ -143,11 +208,23 @@ async def search_products(
         try:
             validated_offers = [schemas.Offer(**offer) for offer in offers]
             return validated_offers
+        except HTTPException as he:
+            # Re-raise HTTP exceptions as-is
+            logger.error("[SEARCH] HTTP error in search: %s", str(he.detail), exc_info=True)
+            raise
         except Exception as e:
-            logger.error(f"[SEARCH] Error validating offers: {e}")
-            logger.error(f"[SEARCH] {traceback.format_exc()}")
-            # Return an empty list if validation fails
-            return []
+            logger.error("[SEARCH] Unexpected error searching products: %s", str(e), exc_info=True)
+            logger.error("[SEARCH] Error type: %s", type(e).__name__)
+            import traceback
+            logger.error("[SEARCH] Traceback: %s", traceback.format_exc())
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "code": "search_error",
+                    "message": f"An error occurred while searching for products: {str(e)}",
+                    "type": type(e).__name__
+                }
+            )
         
     except Exception as e:
         error_msg = f"[SEARCH] Unexpected error in search_products: {str(e)}\n{traceback.format_exc()}"
